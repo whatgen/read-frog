@@ -2,7 +2,7 @@ import type { ProxyResponse } from "@/types/proxy-fetch"
 import { AUTH_COOKIE_PATTERNS } from "@read-frog/definitions"
 import { browser, storage } from "#imports"
 import { env } from "@/env"
-import { safariApiFetch } from "@/utils/auth/safari-api-fetch"
+import { isAccountApiURL, safariApiFetch } from "@/utils/auth/safari-api-fetch"
 import { AUTH_CACHE_GROUP_KEY, DEFAULT_PROXY_CACHE_TTL_MS } from "@/utils/constants/proxy-fetch"
 import { logger } from "@/utils/logger"
 import { onMessage } from "@/utils/message"
@@ -108,7 +108,10 @@ export function proxyFetch() {
 
   // Proxy cross-origin fetches for content scripts and other contexts
   onMessage("backgroundFetch", async (message): Promise<ProxyResponse> => {
-    logger.info("[ProxyFetch] Background fetch:", message.data)
+    logger.info(
+      "[ProxyFetch] Background fetch:",
+      isAccountApiURL(message.data.url) ? { accountRequest: true } : message.data,
+    )
 
     const {
       url,
@@ -193,7 +196,10 @@ export function proxyFetch() {
       bodyEncoding: responseType,
     }
 
-    logger.info("[ProxyFetch] Response without cache:", result)
+    logger.info(
+      "[ProxyFetch] Response without cache:",
+      isAccountApiURL(url) ? { status: result.status } : result,
+    )
 
     // Handle caching based on response
     if (cacheEnabled) {

@@ -36,7 +36,7 @@ const mocks = vi.hoisted(() => {
     },
     extension: { inIncognitoContext: false },
     cookies: { getAll: vi.fn<(...args: any[]) => any>() },
-    runtime: { onConnect },
+    runtime: { onConnect, sendNativeMessage: vi.fn<(...args: any[]) => any>() },
     scripting: { executeScript: vi.fn<(...args: any[]) => any>() },
   }
   return { browser, port, onConnect, onMessage, onDisconnect }
@@ -83,6 +83,12 @@ describe("Safari authenticated API transport", () => {
       { id: 5, url: "https://www.readfrog.app/en/home", incognito: false, active: true },
     ])
     mocks.browser.cookies.getAll.mockResolvedValue([])
+    mocks.browser.runtime.sendNativeMessage.mockResolvedValue({
+      status: 200,
+      headers: [],
+      body: btoa("{}"),
+      cookies: [],
+    })
     mocks.browser.scripting.executeScript.mockResolvedValue([])
   })
   afterEach(() => {
@@ -149,7 +155,8 @@ describe("Safari authenticated API transport", () => {
         ),
       ),
     )
-    expect(fetch).toHaveBeenCalledTimes(12)
+    expect(fetch).not.toHaveBeenCalled()
+    expect(mocks.browser.runtime.sendNativeMessage).toHaveBeenCalledTimes(12)
     expect(mocks.browser.tabs.create).not.toHaveBeenCalled()
     expect(mocks.browser.scripting.executeScript).not.toHaveBeenCalled()
   })
@@ -171,7 +178,8 @@ describe("Safari authenticated API transport", () => {
     await safariApiFetch(sessionURL, options)
     expect(mocks.browser.tabs.create).not.toHaveBeenCalled()
     expect(mocks.browser.scripting.executeScript).toHaveBeenCalledOnce()
-    expect(fetch).toHaveBeenCalledOnce()
+    expect(fetch).not.toHaveBeenCalled()
+    expect(mocks.browser.runtime.sendNativeMessage).toHaveBeenCalledOnce()
   })
 
   it("forwards request bytes and yields stream chunks before completion", async () => {

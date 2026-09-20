@@ -5,6 +5,7 @@ Build the extension from source with the repository's pnpm and Node versions:
 ```sh
 pnpm install --frozen-lockfile
 pnpm build:safari
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer bash scripts/test-safari-native.sh
 ```
 
 The result is `.output/safari-mv3`. The build checks that its entry resources exist and that Chrome-only permissions did not leak into the Safari manifest.
@@ -29,7 +30,7 @@ The packaging script fixes the Xcode 27 converter's inconsistent containing-app 
 
 - Safari uses a nonpersistent background page and has no Chrome `offscreen` API. Speech uses the existing Edge TTS HTTP service, then decodes and plays audio in the page through Web Audio. The click handler resumes audio before asynchronous synthesis begins, respecting Safari's user-gesture requirement. Playback is scoped to the current page; Chrome and Firefox retain their existing background/offscreen playback.
 - Page translation, selection translation, input injection, popup and options UI use the existing extension code.
-- Account sign-in uses the official Read Frog website. Safari can omit website session cookies from extension requests even with host access and `credentials: "include"`. Account requests therefore run in an isolated extension script on an official website tab, with response bytes streamed over a private extension port. Returning to the extension refreshes its account state. Keep a manually opened website tab available while using account features that require this Safari workaround. Background requests never create or reopen website tabs, including after the last official tab is closed; without one they use native fetch. Explicit Log in and Web App actions still open the website. Cookies are not copied into extension storage. Other providers keep their normal network route.
+- Account sign-in uses the official Read Frog website. Safari can omit website session cookies from extension requests even with host access and `credentials: "include"`. Account requests therefore run in an isolated extension script on an official website tab, with response bytes streamed over a private extension port. Returning to the extension refreshes its account state. When no official tab is open, signed-in requests use the containing App’s narrowly scoped native HTTP handler with fresh cookies from the current Safari cookie store. This path buffers responses (up to 8 MiB) before returning them; opening the official website enables incremental streaming for hosted account APIs. Native requests use an ephemeral session without a separate cookie jar, reject redirects, and apply server cookie refresh/logout back to Safari. Background requests never create or reopen website tabs. Explicit Log in and Web App actions still open the website. Cookies are not copied into extension storage. Other providers keep their normal network route.
 - Google Drive sign-in uses a dedicated Safari tab to complete the same Google OAuth flow as Chrome. The callback must match the tab, exact registered origin/path and a random login state. Closing the sign-in tab cancels the attempt; timeout and navigation failure remove its listeners. Local configuration import/export and backups remain available.
 - The upstream side-panel page is currently a placeholder. Safari has no Chrome `sidePanel` API; its permission and manifest entry are excluded. The normal floating translation button remains available.
 - Xcode's converter may warn about `type`, `persistent`, and `world`. These are retained for the background-page and main-world content-script behavior; verify runtime behavior on each supported Safari release instead of removing them blindly.
@@ -49,6 +50,7 @@ SKIP_FREE_API=true pnpm test
 pnpm lint
 pnpm fmt:check
 pnpm build:safari
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer bash scripts/test-safari-native.sh
 ```
 
 In Safari, verify page translation and restoration, selected-text streaming translation, the settings page, provider connection testing, input replacement on a test page, Google Drive upload/download readback, video subtitle translation during playback, and speech completion (not just a successful synthesis response). API availability requires a working provider; an HTTP success with empty model output is not sufficient proof.

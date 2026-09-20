@@ -48,7 +48,7 @@ export default defineConfig({
       "alarms",
       "cookies",
       "contextMenus",
-      ...(browser !== "safari" ? ["identity"] : []),
+      ...(browser !== "safari" ? ["identity"] : ["nativeMessaging"]),
       "scripting",
       "webNavigation",
       ...(["chrome", "edge"].includes(browser) ? ["offscreen", "sidePanel"] : []),

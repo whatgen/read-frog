@@ -1,6 +1,7 @@
 import { AUTH_BASE_PATH, ORPC_PREFIX } from "@read-frog/definitions"
 import { browser } from "#imports"
 import { env } from "@/env"
+import { isNativeAccountURL, safariNativeFetch } from "./safari-native-fetch"
 
 type Port = Parameters<Parameters<typeof browser.runtime.onConnect.addListener>[0]>[0]
 type ApiMessage =
@@ -64,7 +65,9 @@ export async function safariApiFetch(
   if (request.credentials === "omit") return fetch(input, init)
   request.signal.throwIfAborted()
   const tabId = await findAccountTab()
-  if (tabId === undefined) return fetch(input, init)
+  if (tabId === undefined) {
+    return isNativeAccountURL(request.url) ? safariNativeFetch(request) : fetch(input, init)
+  }
   request.signal.throwIfAborted()
 
   const name = `read-frog-account-${crypto.randomUUID()}`
