@@ -389,28 +389,6 @@ describe("universalVideoAdapter", () => {
     expect(mocks.showAiSubtitlesWallToast).not.toHaveBeenCalled()
   })
 
-  it("falls back to native instead of transcribing again when YouTube moves to another video", async () => {
-    const { adapter, subtitlesFetcher } = createAdapter([{ text: "hello", start: 0, end: 500 }])
-    attachScheduler(adapter, true)
-    const aiFetcher = {
-      cleanup: vi.fn<(...args: any[]) => any>(),
-      shouldUseSameTrack: vi.fn<(...args: any[]) => any>().mockResolvedValue(false),
-      fetch: vi.fn<(...args: any[]) => any>(),
-    }
-    ;(adapter as any).fetcher = aiFetcher
-    ;(adapter as any).source = SUBTITLES_SOURCE.AI
-    subtitlesStore.set(subtitlesSourceAtom, SUBTITLES_SOURCE.AI)
-    vi.spyOn(adapter as any, "startTranslation").mockResolvedValue(undefined)
-
-    await adapter.handleSourceTrackChanged()
-
-    expect(aiFetcher.cleanup).toHaveBeenCalled()
-    expect(aiFetcher.fetch).not.toHaveBeenCalled()
-    expect((adapter as any).source).toBe(SUBTITLES_SOURCE.NATIVE)
-    expect(subtitlesStore.get(subtitlesSourceAtom)).toBe(SUBTITLES_SOURCE.NATIVE)
-    expect((adapter as any).fetcher).toBe(subtitlesFetcher)
-  })
-
   it("reverts the source back to native so a failed AI switch can be retried", () => {
     const { adapter, subtitlesFetcher } = createAdapter([])
     const aiFetcher = { cleanup: vi.fn<(...args: any[]) => any>() }

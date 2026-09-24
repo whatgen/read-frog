@@ -29,7 +29,6 @@ import { setupGlossaryMessageHandlers } from "./glossary"
 import { setupHostedAiStatusHandler } from "./hosted-ai-status"
 import { setupIframeInjection } from "./iframe-injection"
 import { setupLLMGenerateTextMessageHandlers } from "./llm-generate-text"
-import { setupLocalTranscriptionHandlers } from "./local-transcription"
 import { initMockData } from "./mock-data"
 import { newUserGuide } from "./new-user-guide"
 import { setupNotebasePendingSaveProcessor } from "./notebase-pending-save"
@@ -154,7 +153,6 @@ export default defineBackground({
     setupGlossaryMessageHandlers()
     setupNotebasePendingSaveProcessor(() => backgroundReady)
     setupEdgeTTSMessageHandlers()
-    setupLocalTranscriptionHandlers()
     setupLLMGenerateTextMessageHandlers()
     setupTTSPlaybackMessageHandlers()
     void initMockData()

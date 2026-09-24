@@ -702,14 +702,6 @@ export class UniversalVideoAdapter implements SubtitlesProvidersAdapter {
       return
     }
 
-    // AI subtitles belong to the video they were made for. When YouTube moves on
-    // (autoplay, a clicked suggestion), fall back to the native track instead of
-    // silently starting a new transcription: that is the viewer's call and costs
-    // compute.
-    if (this.source === SUBTITLES_SOURCE.AI) {
-      this.revertToNativeSource()
-    }
-
     if (!scheduler || !isSchedulerActive) {
       const operationId = ++this.switchOperationId
       this.clearRuntimeSession()

@@ -1216,20 +1216,6 @@ options:
           description: "Maksimum karakter: tek bir yapay zekâ isteği ne kadar metin taşır"
         maxItemsPerBatch:
           description: "Maksimum altyazı satırı: tek istekte kaç satır birleşir. Yapay zekâ olmayan sağlayıcılar ikisini de yok sayar"
-    localService:
-      title: Local AI subtitles
-      description: The Safari app downloads the video's audio and sends it to a speech server you run, such as WhisperServer on this Mac. No sign-in and no quota. Leave the address empty to detect WhisperServer automatically, or use the hosted service when none answers.
-      url:
-        title: Speech server address
-        description: Any OpenAI-compatible /v1/audio/transcriptions server that returns timed segments. WhisperServer's default is http://localhost:12017
-      apiKey:
-        title: API key
-        description: Only needed for a server on another device. Requests from this Mac need no key
-      test: Test connection
-      testing: Testing...
-      connected: Connected · $1
-      unreachable: Cannot reach the speech server
-      failed: "Local transcription failed: $1"
     cache:
       title: Önbellek
       clearCache:
