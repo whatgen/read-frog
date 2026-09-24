@@ -138,6 +138,29 @@ async function writeCache(entry: CachedTranscript): Promise<void> {
   await transcriptCacheItem.setValue([entry, ...cache].slice(0, TRANSCRIPT_CACHE_LIMIT))
 }
 
+const POLL_INTERVAL_MS = 1_000
+// Transcription runs well faster than real time; this only bounds a stuck job.
+const MAX_WAIT_MS = 60 * 60 * 1_000
+
+/** Resolves after `ms`, or rejects at once when the request is aborted. */
+function waitOrAbort(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const onAbort = () => {
+      clearTimeout(timer)
+      reject(signal!.reason ?? new DOMException("Aborted", "AbortError"))
+    }
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort)
+      resolve()
+    }, ms)
+    signal?.addEventListener("abort", onAbort, { once: true })
+  })
+}
+
+function failed(reason: string): OverlaySubtitlesError {
+  return new OverlaySubtitlesError(i18n.t("options.videoSubtitles.localService.failed", [reason]))
+}
+
 export async function requestLocalAiSubtitles(
   baseUrl: string,
   ctx: AiSubtitlesContext,
@@ -148,38 +171,44 @@ export async function requestLocalAiSubtitles(
   if (cached) return cached
 
   const id = crypto.randomUUID()
+  // Leaving the video must free the player at once and stop the native job,
+  // not wait for the job to notice.
   const onAbort = () => void sendMessage("localTranscribeCancel", { id }).catch(() => {})
   signal?.addEventListener("abort", onAbort, { once: true })
-  let result: LocalTranscribeResult
   try {
     const apiKey = (await localSubtitlesApiKeyItem.getValue()).trim()
-    result = await sendMessage("localTranscribe", {
+    const started = await sendMessage("localTranscribeStart", {
       id,
       videoId: ctx.videoId,
       server: normalizeUrl(baseUrl),
       ...(apiKey ? { apiKey } : {}),
     })
+    signal?.throwIfAborted()
+    if ("error" in started) throw failed(started.error)
+
+    const deadline = Date.now() + MAX_WAIT_MS
+    while (Date.now() < deadline) {
+      await waitOrAbort(POLL_INTERVAL_MS, signal)
+      const result = await sendMessage("localTranscribeStatus", { id })
+      signal?.throwIfAborted()
+      if ("status" in result) continue
+      if ("cancelled" in result) throw new DOMException("Aborted", "AbortError")
+      if ("error" in result) throw failed(result.error)
+
+      const transcript: CachedTranscript = {
+        videoId: ctx.videoId,
+        segments: normalizeSegments(result.segments),
+        detectedLanguage: result.language ?? "",
+      }
+      if (transcript.segments.length > 0) await writeCache(transcript)
+      return transcript
+    }
+    void sendMessage("localTranscribeCancel", { id }).catch(() => {})
+    throw failed("timed out")
   } catch (error) {
-    throw new OverlaySubtitlesError(
-      i18n.t("options.videoSubtitles.localService.failed", [String(error)]),
-    )
+    if (error instanceof OverlaySubtitlesError || signal?.aborted) throw error
+    throw failed(String(error))
   } finally {
     signal?.removeEventListener("abort", onAbort)
   }
-
-  signal?.throwIfAborted()
-  if ("cancelled" in result) throw new DOMException("Aborted", "AbortError")
-  if ("error" in result) {
-    throw new OverlaySubtitlesError(
-      i18n.t("options.videoSubtitles.localService.failed", [result.error]),
-    )
-  }
-
-  const transcript: CachedTranscript = {
-    videoId: ctx.videoId,
-    segments: normalizeSegments(result.segments),
-    detectedLanguage: result.language ?? "",
-  }
-  if (transcript.segments.length > 0) await writeCache(transcript)
-  return transcript
 }

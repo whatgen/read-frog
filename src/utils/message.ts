@@ -191,7 +191,12 @@ interface ProtocolMap {
   // network proxy
   backgroundFetch: (data: ProxyRequest) => Promise<ProxyResponse>
   // local AI subtitles (Safari native handler)
-  localTranscribe: (data: LocalTranscribeRequest) => Promise<LocalTranscribeResult>
+  localTranscribeStart: (
+    data: LocalTranscribeRequest,
+  ) => Promise<{ started: true } | { error: string }>
+  localTranscribeStatus: (data: {
+    id: string
+  }) => Promise<{ status: "running" } | LocalTranscribeResult>
   localTranscribeCancel: (data: { id: string }) => Promise<void>
   // cache management
   clearAllTranslationRelatedCache: () => Promise<void>

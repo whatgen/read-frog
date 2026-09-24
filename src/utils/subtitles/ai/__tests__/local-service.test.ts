@@ -103,52 +103,67 @@ describe("local AI subtitles", () => {
   })
 
   describe("requestLocalAiSubtitles", () => {
-    it("relays through the native handler and caches the result", async () => {
-      await localSubtitlesApiKeyItem.setValue("ws-secret")
-      sendMessageMock.mockResolvedValueOnce({
-        segments: [{ start: 1.5, end: 3, text: "hello" }],
-        language: "en",
+    function nativeJob(results: unknown[]) {
+      const queue = [...results]
+      sendMessageMock.mockImplementation(async (type) => {
+        if (type === "localTranscribeStart") return { started: true }
+        if (type === "localTranscribeStatus") return queue.shift() ?? { status: "running" }
+        return undefined
       })
+    }
 
-      const first = await requestLocalAiSubtitles("http://localhost:12017/", ctx)
+    it("starts a native job, polls it and caches the result", async () => {
+      vi.useFakeTimers()
+      await localSubtitlesApiKeyItem.setValue("ws-secret")
+      nativeJob([
+        { status: "running" },
+        { segments: [{ start: 1.5, end: 3, text: "hello" }], language: "en" },
+      ])
+
+      const pending = requestLocalAiSubtitles("http://localhost:12017/", ctx)
+      await vi.advanceTimersByTimeAsync(2_000)
+      const first = await pending
       expect(first).toMatchObject({
         segments: [{ text: "hello", start: 1500, end: 3000 }],
         detectedLanguage: "en",
       })
       const [type, request] = sendMessageMock.mock.calls[0]!
-      expect(type).toBe("localTranscribe")
+      expect(type).toBe("localTranscribeStart")
       expect(request).toMatchObject({
         videoId: "jNQXAC9IVRw",
         server: "http://localhost:12017",
         apiKey: "ws-secret",
       })
+      const polls = sendMessageMock.mock.calls.filter(([t]) => t === "localTranscribeStatus")
+      expect(polls).toHaveLength(2)
+      expect(polls[0]![1].id).toBe(request.id)
 
+      sendMessageMock.mockClear()
       const second = await requestLocalAiSubtitles("http://localhost:12017", ctx)
       expect(second.segments).toEqual(first.segments)
-      expect(sendMessageMock).toHaveBeenCalledTimes(1)
+      expect(sendMessageMock).not.toHaveBeenCalled()
+      vi.useRealTimers()
     })
 
     it("surfaces native errors", async () => {
-      sendMessageMock.mockResolvedValueOnce({ error: "Audio download failed: HTTP 403" })
+      sendMessageMock.mockResolvedValueOnce({ error: "Invalid transcription request" })
       await expect(requestLocalAiSubtitles("http://localhost:12017", ctx)).rejects.toThrow(
         /localService\.failed/,
       )
     })
 
-    it("cancels the native job when aborted", async () => {
-      let finish: (value: unknown) => void = () => {}
-      sendMessageMock.mockImplementation(async (type) => {
-        if (type === "localTranscribe") return new Promise((resolve) => (finish = resolve))
-        return undefined
-      })
+    it("stops at once and cancels the native job when the viewer leaves the video", async () => {
+      nativeJob([])
       const controller = new AbortController()
       const pending = requestLocalAiSubtitles("http://localhost:12017", ctx, controller.signal)
-      await vi.waitFor(() => expect(sendMessageMock).toHaveBeenCalledTimes(1))
+      await vi.waitFor(() =>
+        expect(sendMessageMock).toHaveBeenCalledWith("localTranscribeStart", expect.anything()),
+      )
       controller.abort()
-      finish({ cancelled: true })
       await expect(pending).rejects.toThrow(/aborted/i)
-      const cancel = sendMessageMock.mock.calls.find(([type]) => type === "localTranscribeCancel")
-      expect(cancel?.[1].id).toBe(sendMessageMock.mock.calls[0]![1].id)
+      const startId = sendMessageMock.mock.calls[0]![1].id
+      const cancel = sendMessageMock.mock.calls.find(([t]) => t === "localTranscribeCancel")
+      expect(cancel?.[1].id).toBe(startId)
     })
   })
 })

@@ -187,22 +187,27 @@ final class VideoTranscriber {
         return ["segments": segments, "language": json["language"] as? String ?? ""]
     }
 
-    private let queue = DispatchQueue(label: "app.readfrog.transcriber")
+    // The work runs on its own thread; cancel() only flips state under the lock,
+    // so it takes effect at once instead of queueing behind a running download.
+    private let lock = NSLock()
     private var process: Process?
     private var task: URLSessionUploadTask?
     private var cancelled = false
 
+    private var isCancelled: Bool { lock.withLock { cancelled } }
+
     func cancel() {
-        queue.async {
-            self.cancelled = true
-            self.process?.terminate()
-            self.task?.cancel()
+        let (process, task) = lock.withLock { () -> (Process?, URLSessionUploadTask?) in
+            cancelled = true
+            return (self.process, self.task)
         }
+        process?.terminate()
+        task?.cancel()
     }
 
     func start(videoID: String, endpoint: URL, apiKey: String?, language: String?,
                completion: @escaping ([String: Any]) -> Void) {
-        queue.async {
+        DispatchQueue.global(qos: .userInitiated).async {
             let work = FileManager.default.temporaryDirectory.appendingPathComponent("transcribe-" + UUID().uuidString)
             func finish(_ result: [String: Any]) {
                 try? FileManager.default.removeItem(at: work)
@@ -227,13 +232,17 @@ final class VideoTranscriber {
                 let errors = Pipe()
                 process.standardOutput = FileHandle.nullDevice
                 process.standardError = errors
-                guard !self.cancelled else { return finish(["cancelled": true]) }
-                self.process = process
+                let proceed = self.lock.withLock { () -> Bool in
+                    guard !self.cancelled else { return false }
+                    self.process = process
+                    return true
+                }
+                guard proceed else { return finish(["cancelled": true]) }
                 try process.run()
                 let stderr = errors.fileHandleForReading.readDataToEndOfFile()
                 process.waitUntilExit()
-                self.process = nil
-                guard !self.cancelled else { return finish(["cancelled": true]) }
+                self.lock.withLock { self.process = nil }
+                guard !self.isCancelled else { return finish(["cancelled": true]) }
                 let audio = try FileManager.default.contentsOfDirectory(at: work, includingPropertiesForKeys: nil)
                     .first { $0.lastPathComponent.hasPrefix("audio.") }
                 guard process.terminationStatus == 0, let audio else {
@@ -254,18 +263,24 @@ final class VideoTranscriber {
                 let session = URLSession(configuration: configuration)
                 let task = session.uploadTask(with: request, fromFile: body) { data, response, error in
                     session.finishTasksAndInvalidate()
-                    self.queue.async {
-                        self.task = nil
-                        if self.cancelled { return finish(["cancelled": true]) }
-                        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-                        guard error == nil, (200..<300).contains(status), let data else {
-                            let detail = error.map { $0.localizedDescription } ?? "HTTP \(status)"
-                            return finish(["error": "Speech server request failed: " + detail])
-                        }
-                        finish(Self.segments(from: data))
+                    self.lock.withLock { self.task = nil }
+                    if self.isCancelled { return finish(["cancelled": true]) }
+                    let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+                    guard error == nil, (200..<300).contains(status), let data else {
+                        let detail = error.map { $0.localizedDescription } ?? "HTTP \(status)"
+                        return finish(["error": "Speech server request failed: " + detail])
                     }
+                    finish(Self.segments(from: data))
                 }
-                self.task = task
+                let proceedUpload = self.lock.withLock { () -> Bool in
+                    guard !self.cancelled else { return false }
+                    self.task = task
+                    return true
+                }
+                guard proceedUpload else {
+                    session.invalidateAndCancel()
+                    return finish(["cancelled": true])
+                }
                 task.resume()
             } catch {
                 finish(["error": "Transcription failed: \(error.localizedDescription)"])
@@ -274,8 +289,15 @@ final class VideoTranscriber {
     }
 }
 
+/// Main-queue state for one transcription, collected by polling.
+final class TranscriptionJob {
+    let transcriber = VideoTranscriber()
+    var result: [String: Any]?
+    var finishedAt: Date?
+}
+
 class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
-    private static var transcriptions: [String: VideoTranscriber] = [:]
+    private static var transcriptions: [String: TranscriptionJob] = [:]
 
     // Confine registry access to the main queue and namespace it by Safari
     // profile. No request can reuse another profile's session or cancel its work.
@@ -298,27 +320,44 @@ class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
             let key = profile + ":" + id
             switch message["type"] as? String {
             case "read-frog-transcribe-cancel":
-                Self.transcriptions[key]?.cancel()
+                Self.transcriptions.removeValue(forKey: key)?.transcriber.cancel()
                 reply(["cancelled": true])
                 return
-            case "read-frog-transcribe":
+            case "read-frog-transcribe-status":
+                // Jobs outlive single messages, so a long video never holds one reply open.
+                guard let job = Self.transcriptions[key] else {
+                    reply(["error": "Unknown transcription"])
+                    return
+                }
+                if let result = job.result {
+                    Self.transcriptions.removeValue(forKey: key)
+                    reply(result)
+                } else {
+                    reply(["status": "running"])
+                }
+                return
+            case "read-frog-transcribe-start":
                 let apiKey = (message["apiKey"] as? String).flatMap { $0.isEmpty ? nil : $0 }
                 let language = (message["language"] as? String).flatMap { VideoTranscriber.isLanguage($0) ? $0 : nil }
+                // Results nobody collected (a closed tab) are dropped after ten minutes.
+                Self.transcriptions = Self.transcriptions.filter { $0.value.finishedAt.map { -$0.timeIntervalSinceNow < 600 } ?? true }
                 guard let videoID = message["videoId"] as? String, VideoTranscriber.isVideoID(videoID),
                       let endpoint = (message["server"] as? String).flatMap(VideoTranscriber.endpoint),
                       apiKey.map({ !$0.contains("\r") && !$0.contains("\n") && $0.count <= 512 }) ?? true,
-                      Self.transcriptions[key] == nil, Self.transcriptions.count < 4 else {
+                      Self.transcriptions[key] == nil,
+                      Self.transcriptions.values.filter({ $0.result == nil }).count < 4 else {
                     reply(["error": "Invalid transcription request"])
                     return
                 }
-                let transcriber = VideoTranscriber()
-                Self.transcriptions[key] = transcriber
-                transcriber.start(videoID: videoID, endpoint: endpoint, apiKey: apiKey, language: language) { result in
+                let job = TranscriptionJob()
+                Self.transcriptions[key] = job
+                job.transcriber.start(videoID: videoID, endpoint: endpoint, apiKey: apiKey, language: language) { result in
                     DispatchQueue.main.async {
-                        Self.transcriptions.removeValue(forKey: key)
-                        reply(result)
+                        job.result = result
+                        job.finishedAt = Date()
                     }
                 }
+                reply(["started": true])
                 return
             default:
                 break
