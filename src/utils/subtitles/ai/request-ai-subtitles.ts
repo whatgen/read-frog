@@ -7,6 +7,7 @@ import { isORPCPublicAppError } from "@/utils/notebase/errors"
 import { orpcClient } from "@/utils/orpc/client"
 import { OverlaySubtitlesError, ToastSubtitlesError } from "@/utils/subtitles/errors"
 import { billingAction, upgradeAction } from "./entitlement"
+import { getLocalSubtitlesServiceUrl, requestLocalAiSubtitles } from "./local-service"
 
 export interface AiSubtitlesContext {
   videoId: string
@@ -132,6 +133,11 @@ export async function requestAiSubtitles(
   const signal = opts?.signal
 
   throwIfAborted(signal)
+
+  const localServiceUrl = await getLocalSubtitlesServiceUrl()
+  if (localServiceUrl) {
+    return requestLocalAiSubtitles(localServiceUrl, ctx, signal)
+  }
 
   const { error, data } = await safe(orpcClient.videoTranscript.create({ url, durationSec }))
   if (error) {

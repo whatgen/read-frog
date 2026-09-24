@@ -1216,6 +1216,17 @@ options:
           description: "Số ký tự tối đa: mỗi yêu cầu tới AI mang bao nhiêu văn bản"
         maxItemsPerBatch:
           description: "Số dòng tối đa: bao nhiêu dòng phụ đề gộp chung một yêu cầu. Nhà cung cấp không dùng AI bỏ qua cả hai"
+    localService:
+      title: Local AI subtitles
+      description: Transcribe videos with Whisper on this Mac through the Read Frog local server. No sign-in and no quota. Leave the address empty to use the hosted service.
+      url:
+        title: Local server address
+        description: Start the server with local-server/readfrog-local.sh start, then enter its address
+      test: Test connection
+      testing: Testing...
+      connected: Connected · $1
+      unreachable: Cannot reach the local server
+      failed: "Local transcription failed: $1"
     cache:
       title: Bộ nhớ đệm
       clearCache:

@@ -1216,6 +1216,17 @@ options:
           description: "Maksimum karakter: tek bir yapay zekâ isteği ne kadar metin taşır"
         maxItemsPerBatch:
           description: "Maksimum altyazı satırı: tek istekte kaç satır birleşir. Yapay zekâ olmayan sağlayıcılar ikisini de yok sayar"
+    localService:
+      title: Local AI subtitles
+      description: Transcribe videos with Whisper on this Mac through the Read Frog local server. No sign-in and no quota. Leave the address empty to use the hosted service.
+      url:
+        title: Local server address
+        description: Start the server with local-server/readfrog-local.sh start, then enter its address
+      test: Test connection
+      testing: Testing...
+      connected: Connected · $1
+      unreachable: Cannot reach the local server
+      failed: "Local transcription failed: $1"
     cache:
       title: Önbellek
       clearCache:

@@ -1332,6 +1332,17 @@ options:
           description: "Maximum characters: how much text one AI request carries"
         maxItemsPerBatch:
           description: "Maximum subtitle lines: how many lines share one request. Providers that are not AI ignore both"
+    localService:
+      title: Local AI subtitles
+      description: Transcribe videos with Whisper on this Mac through the Read Frog local server. No sign-in and no quota. Leave the address empty to use the hosted service.
+      url:
+        title: Local server address
+        description: Start the server with local-server/readfrog-local.sh start, then enter its address
+      test: Test connection
+      testing: Testing...
+      connected: Connected · $1
+      unreachable: Cannot reach the local server
+      failed: "Local transcription failed: $1"
     cache:
       title: Cache
       clearCache:

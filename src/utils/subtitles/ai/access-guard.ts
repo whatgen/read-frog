@@ -4,6 +4,7 @@ import { isORPCForbiddenError, isORPCUnauthorizedError } from "@/utils/notebase/
 import { orpcClient } from "@/utils/orpc/client"
 import { showAiSubtitlesWallToast } from "@/utils/subtitles/toast"
 import { formatQuotaDate, logInAction, quotaResetAt, upgradeAction } from "./entitlement"
+import { getLocalSubtitlesServiceUrl } from "./local-service"
 
 function promptLogIn(): void {
   showAiSubtitlesWallToast(i18n.t("subtitles.errors.aiLoginRequired"), logInAction())
@@ -82,6 +83,10 @@ export async function ensureAiSubtitlesEntitled(): Promise<boolean> {
 }
 
 export async function ensureAiSubtitlesAccess(): Promise<boolean> {
+  // A self-hosted transcription server needs no account or plan.
+  if (await getLocalSubtitlesServiceUrl()) {
+    return true
+  }
   if (!(await ensureSignedIn())) {
     return false
   }
