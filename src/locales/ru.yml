@@ -1218,7 +1218,7 @@ options:
           description: "Максимум строк субтитров: сколько строк объединяются в один запрос. Сервисы без ИИ не учитывают оба значения"
     localService:
       title: Local AI subtitles
-      description: Transcribe videos with Whisper on this Mac through the Read Frog local server. No sign-in and no quota. Leave the address empty to use the hosted service.
+      description: Transcribe videos with Whisper on this Mac through the Read Frog local server. No sign-in and no quota. Leave the address empty to detect a server running on this Mac automatically, or use the hosted service when none answers.
       url:
         title: Local server address
         description: Start the server with local-server/readfrog-local.sh start, then enter its address

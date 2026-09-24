@@ -1334,7 +1334,7 @@ options:
           description: "Maximum subtitle lines: how many lines share one request. Providers that are not AI ignore both"
     localService:
       title: Local AI subtitles
-      description: Transcribe videos with Whisper on this Mac through the Read Frog local server. No sign-in and no quota. Leave the address empty to use the hosted service.
+      description: Transcribe videos with Whisper on this Mac through the Read Frog local server. No sign-in and no quota. Leave the address empty to detect a server running on this Mac automatically, or use the hosted service when none answers.
       url:
         title: Local server address
         description: Start the server with local-server/readfrog-local.sh start, then enter its address

@@ -1334,7 +1334,7 @@ options:
           description: 最大字幕条数：多少条字幕合并成一次请求。非 AI 的翻译服务不受这两项影响
     localService:
       title: 本地 AI 字幕
-      description: 通过陪读蛙本地服务，在这台 Mac 上用 Whisper 识别视频语音。不需要登录，也没有额度限制。地址留空则使用官方托管服务。
+      description: 通过陪读蛙本地服务，在这台 Mac 上用 Whisper 识别视频语音。不需要登录，也没有额度限制。地址留空时会自动检测本机运行的服务，检测不到则使用官方托管服务。
       url:
         title: 本地服务地址
         description: 先运行 local-server/readfrog-local.sh start 启动服务，再填入它的地址

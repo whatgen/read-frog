@@ -5,12 +5,11 @@ import { Input } from "@/components/ui/base-ui/input"
 import { i18n } from "@/utils/i18n"
 import {
   checkLocalSubtitlesService,
+  DEFAULT_LOCAL_SUBTITLES_SERVICE_URL as DEFAULT_LOCAL_URL,
   localSubtitlesServiceUrlItem,
 } from "@/utils/subtitles/ai/local-service"
 import { ConfigItem } from "../../../components/config-item"
 import { ConfigSection } from "../../../components/config-section"
-
-const DEFAULT_LOCAL_URL = "http://127.0.0.1:8765"
 
 /** Points AI subtitles at a self-hosted transcription server instead of the hosted one. */
 export function LocalServiceSection() {

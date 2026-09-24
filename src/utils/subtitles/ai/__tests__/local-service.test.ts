@@ -29,8 +29,18 @@ describe("local subtitles service", () => {
     vi.useRealTimers()
   })
 
-  it("is disabled until an address is saved and trims trailing slashes", async () => {
+  it("falls back to the hosted service when no address is saved and nothing answers", async () => {
+    sendMessageMock.mockRejectedValueOnce(new Error("Failed to fetch"))
     expect(await getLocalSubtitlesServiceUrl()).toBeNull()
+  })
+
+  it("detects a server running at the default address without setup", async () => {
+    sendMessageMock.mockResolvedValueOnce(reply(200, { ok: true, model: "whisper" }))
+    expect(await getLocalSubtitlesServiceUrl()).toBe("http://127.0.0.1:8765")
+    expect(sendMessageMock.mock.calls[0]![1].url).toBe("http://127.0.0.1:8765/health")
+  })
+
+  it("prefers a saved address and trims trailing slashes", async () => {
     await localSubtitlesServiceUrlItem.setValue(" http://127.0.0.1:8765/ ")
     expect(await getLocalSubtitlesServiceUrl()).toBe("http://127.0.0.1:8765")
   })

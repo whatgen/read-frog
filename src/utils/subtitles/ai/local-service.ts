@@ -15,9 +15,18 @@ export const localSubtitlesServiceUrlItem = storage.defineItem<string>(
   { fallback: "" },
 )
 
+export const DEFAULT_LOCAL_SUBTITLES_SERVICE_URL = "http://127.0.0.1:8765"
+
+/**
+ * The configured address, or the default address when a local server answers
+ * there — so a running server works without any setup. Returns null to fall back
+ * to the hosted service.
+ */
 export async function getLocalSubtitlesServiceUrl(): Promise<string | null> {
   const value = (await localSubtitlesServiceUrlItem.getValue()).trim().replace(/\/+$/, "")
-  return value || null
+  if (value) return value
+  const health = await checkLocalSubtitlesService(DEFAULT_LOCAL_SUBTITLES_SERVICE_URL)
+  return health.ok ? DEFAULT_LOCAL_SUBTITLES_SERVICE_URL : null
 }
 
 interface LocalJob {
