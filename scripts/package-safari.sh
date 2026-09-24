@@ -47,4 +47,8 @@ app_path="$PWD/.safari/DerivedData/Build/Products/Release/$app_name.app"
 if [[ -n "${SAFARI_TEAM_ID:-}" ]]; then
   codesign --verify --deep --strict "$app_path"
 fi
+# Xcode registers the build product with Launch Services, which makes Safari
+# list a duplicate extension next to the copy installed in /Applications.
+/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister \
+  -u "$app_path" 2>/dev/null || true
 printf '\nSafari app: %s\n' "$app_path"
