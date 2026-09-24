@@ -2,6 +2,7 @@ import type { ProxyResponse } from "@/types/proxy-fetch"
 import { storage } from "#imports"
 import { DEFAULT_PROXY_CACHE_TTL_MS } from "@/utils/constants/proxy-fetch"
 import { logger } from "@/utils/logger"
+import { withStorageLock } from "./storage-lock"
 
 interface CacheMetadata extends Record<string, unknown> {
   timestamp: number
@@ -9,7 +10,6 @@ interface CacheMetadata extends Record<string, unknown> {
 
 type CachedItem = ProxyResponse
 
-// TODO: solve race condition of cache group registry
 export class SessionCache {
   private prefix: string
   private keysListKey: `session:${string}`
@@ -79,11 +79,13 @@ export class SessionCache {
       ])
 
       // Track this key for group clearing
-      const keysList = (await storage.getItem<string[]>(this.keysListKey)) || []
-      if (!keysList.includes(key)) {
-        keysList.push(key)
-        await storage.setItem(this.keysListKey, keysList)
-      }
+      await withStorageLock(this.keysListKey, async () => {
+        const keysList = (await storage.getItem<string[]>(this.keysListKey)) || []
+        if (!keysList.includes(key)) {
+          keysList.push(key)
+          await storage.setItem(this.keysListKey, keysList)
+        }
+      })
 
       logger.info("[SessionCache] Cache set:", { reqMethod, targetUrl })
     } catch (error) {
@@ -101,9 +103,11 @@ export class SessionCache {
       await Promise.all([storage.removeItem(key), storage.removeMeta(key)])
 
       // Remove from keys list
-      const keysList = (await storage.getItem<string[]>(this.keysListKey)) || []
-      const updatedKeysList = keysList.filter((k) => k !== key)
-      await storage.setItem(this.keysListKey, updatedKeysList)
+      await withStorageLock(this.keysListKey, async () => {
+        const keysList = (await storage.getItem<string[]>(this.keysListKey)) || []
+        const updatedKeysList = keysList.filter((k) => k !== key)
+        await storage.setItem(this.keysListKey, updatedKeysList)
+      })
     } catch (error) {
       logger.error("[SessionCache] Delete error:", error)
     }
@@ -113,24 +117,26 @@ export class SessionCache {
     try {
       await this.ensureKeysListInitialized()
 
-      // Get all tracked keys for this group
-      const keysList = (await storage.getItem<string[]>(this.keysListKey)) || []
+      await withStorageLock(this.keysListKey, async () => {
+        // Get all tracked keys for this group
+        const keysList = (await storage.getItem<string[]>(this.keysListKey)) || []
 
-      if (keysList.length > 0) {
-        // Use bulk removal for better performance
-        await storage.removeItems(
-          keysList.map((key) => ({
-            key: key as any,
-            options: { removeMeta: true }, // Also remove metadata
-          })),
-        )
-      }
+        if (keysList.length > 0) {
+          // Use bulk removal for better performance
+          await storage.removeItems(
+            keysList.map((key) => ({
+              key: key as any,
+              options: { removeMeta: true }, // Also remove metadata
+            })),
+          )
+        }
 
-      // Clear the keys list itself
-      await storage.removeItem(this.keysListKey)
-      this.isInitialized = false // Reset initialization flag
+        // Clear the keys list itself
+        await storage.removeItem(this.keysListKey)
+        this.isInitialized = false // Reset initialization flag
 
-      logger.info("[SessionCache] Cleared cache:", { count: keysList.length })
+        logger.info("[SessionCache] Cleared cache:", { count: keysList.length })
+      })
     } catch (error) {
       logger.error("[SessionCache] Clear error:", error)
     }
