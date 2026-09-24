@@ -22,5 +22,7 @@ export async function dismissStoreReviewPrompt(): Promise<void> {
 }
 
 export function shouldShowStoreReviewPrompt(activeDayCount: number, dismissed: boolean): boolean {
+  // Safari builds are sideloaded; there is no store listing to review.
+  if (import.meta.env.BROWSER === "safari") return false
   return !dismissed && activeDayCount >= STORE_REVIEW_PROMPT_MIN_ACTIVE_DAYS
 }
