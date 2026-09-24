@@ -1,0 +1,21 @@
+diff --git a/dist/react/useAtomValueRaw.js b/dist/react/useAtomValueRaw.js
+index ffb64adbea1b8a81515a14b948f21579f8d1b181..355493b4d5b7005cc39e89c7130226bdf85ce85c 100644
+--- a/dist/react/useAtomValueRaw.js
++++ b/dist/react/useAtomValueRaw.js
+@@ -18,7 +18,15 @@ export function useAtomValueRaw(atom, options) {
+         rerender();
+         value = store.get(atom);
+     }
+-    useEffect(() => store.sub(atom, rerender), [store, atom]);
++    // Read Frog patch: re-read once after subscribing (as jotai 2 did). Updates
++    // made while the component was unsubscribed — e.g. inside a hidden React
++    // <Activity> — are otherwise never delivered, and the component keeps a stale
++    // value until the atom changes again. The reducer bails out when unchanged.
++    useEffect(() => {
++        const unsubscribe = store.sub(atom, rerender);
++        rerender();
++        return unsubscribe;
++    }, [store, atom]);
+     useDebugValue(value);
+     if (isPromiseLike(value)) {
+         return createContinuablePromise(store, value, () => store.get(atom));
