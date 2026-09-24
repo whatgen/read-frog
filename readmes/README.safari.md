@@ -35,6 +35,16 @@ The packaging script fixes the Xcode 27 converter's inconsistent containing-app 
 - The upstream side-panel page is currently a placeholder. Safari has no Chrome `sidePanel` API; its permission and manifest entry are excluded. The normal floating translation button remains available.
 - Xcode's converter may warn about `type`, `persistent`, and `world`. These are retained for the background-page and main-world content-script behavior; verify runtime behavior on each supported Safari release instead of removing them blindly.
 
+## Local AI subtitles
+
+AI subtitles can run on your own Mac instead of the hosted service, with no sign-in or plan:
+
+1. Install a speech server that implements OpenAI's `/v1/audio/transcriptions` with timed `verbose_json` segments. [WhisperServer](https://github.com/pfrankov/whisper-server) is a menu bar app that does; pick `large-v3-turbo-q5_0` in its menu for multilingual videos. (Ollama and vMLX currently return text without timestamps, which subtitles cannot use.)
+2. Leave Options → Video subtitles → Local AI subtitles empty to detect WhisperServer at `http://localhost:12017`, or enter another server's address. An API key is only needed for a server on another device.
+3. On YouTube, choose **AI subtitles**. Translation and segmentation still use the provider selected for video subtitles, so a local Ollama or vMLX model keeps everything on your machine.
+
+The Safari app bundles the official yt-dlp "onedir" build (pinned and checksum-verified in `scripts/embed-safari-ytdlp.sh`, arm64 only, about 70 MB). When the extension asks, its native handler downloads the audio into its sandbox, uploads it to the speech server and returns the segments; nothing stays resident. Results are cached per video. Long server segments are split at punctuation with time shared by character count.
+
 ## Google Drive configuration
 
 Use the same `WXT_GOOGLE_CLIENT_ID` used for the upstream Chrome release. It is a public application identifier, not a user's Google password or access token. The upstream release pipeline injects it when building; a local source build can put it in the ignored `.env.safari.local` file. Installing an already configured Safari app does not require each user to create a Google Cloud project.

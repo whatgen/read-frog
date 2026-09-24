@@ -6,34 +6,44 @@ import { i18n } from "@/utils/i18n"
 import {
   checkLocalSubtitlesService,
   DEFAULT_LOCAL_SUBTITLES_SERVICE_URL as DEFAULT_LOCAL_URL,
+  localSubtitlesApiKeyItem,
   localSubtitlesServiceUrlItem,
 } from "@/utils/subtitles/ai/local-service"
 import { ConfigItem } from "../../../components/config-item"
 import { ConfigSection } from "../../../components/config-section"
 
-/** Points AI subtitles at a self-hosted transcription server instead of the hosted one. */
+/** Points AI subtitles at the user's own speech server instead of the hosted one. */
 export function LocalServiceSection() {
   const [url, setUrl] = useState("")
+  const [apiKey, setApiKey] = useState("")
   const [testing, setTesting] = useState(false)
   const [result, setResult] = useState<string | null>(null)
 
   useEffect(() => {
     void localSubtitlesServiceUrlItem.getValue().then(setUrl)
+    void localSubtitlesApiKeyItem.getValue().then(setApiKey)
   }, [])
 
-  async function save(value: string) {
+  async function saveUrl(value: string) {
     setUrl(value)
     setResult(null)
     await localSubtitlesServiceUrlItem.setValue(value.trim())
   }
 
+  async function saveApiKey(value: string) {
+    setApiKey(value)
+    setResult(null)
+    await localSubtitlesApiKeyItem.setValue(value.trim())
+  }
+
   async function handleTest() {
     setTesting(true)
     try {
-      const health = await checkLocalSubtitlesService(url || DEFAULT_LOCAL_URL)
+      const target = url.trim() || DEFAULT_LOCAL_URL
+      const health = await checkLocalSubtitlesService(target)
       setResult(
         health.ok
-          ? i18n.t("options.videoSubtitles.localService.connected", [health.model ?? "Whisper"])
+          ? i18n.t("options.videoSubtitles.localService.connected", [target])
           : i18n.t("options.videoSubtitles.localService.unreachable"),
       )
     } finally {
@@ -63,7 +73,7 @@ export function LocalServiceSection() {
               className="w-64"
               placeholder={DEFAULT_LOCAL_URL}
               value={url}
-              onChange={(event) => void save(event.target.value)}
+              onChange={(event) => void saveUrl(event.target.value)}
             />
             <Button variant="outline" size="sm" disabled={testing} onClick={handleTest}>
               <IconPlugConnected className="size-4" />
@@ -74,6 +84,19 @@ export function LocalServiceSection() {
           </div>
           {result && <p className="text-xs text-muted-foreground">{result}</p>}
         </div>
+      </ConfigItem>
+      <ConfigItem
+        id="local-subtitles-api-key"
+        title={i18n.t("options.videoSubtitles.localService.apiKey.title")}
+        description={i18n.t("options.videoSubtitles.localService.apiKey.description")}
+      >
+        <Input
+          className="w-64"
+          type="password"
+          autoComplete="off"
+          value={apiKey}
+          onChange={(event) => void saveApiKey(event.target.value)}
+        />
       </ConfigItem>
     </ConfigSection>
   )

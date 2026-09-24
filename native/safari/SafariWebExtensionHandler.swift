@@ -133,7 +133,150 @@ final class AccountHTTPTransport: NSObject, URLSessionDataDelegate {
     }
 }
 
+// AI subtitles on this Mac: the bundled yt-dlp fetches a YouTube video's audio,
+// and a speech server the user runs (an OpenAI-compatible
+// /v1/audio/transcriptions endpoint such as WhisperServer) returns timed segments.
+// The extension stays light; no model runs inside the extension.
+final class VideoTranscriber {
+    static func isVideoID(_ value: String) -> Bool {
+        value.range(of: #"^[A-Za-z0-9_-]{11}$"#, options: .regularExpression) != nil
+    }
+
+    static func endpoint(_ raw: String) -> URL? {
+        guard var components = URLComponents(string: raw), ["http", "https"].contains(components.scheme),
+              components.host?.isEmpty == false, components.user == nil, components.password == nil,
+              components.query == nil, components.fragment == nil else { return nil }
+        components.path = components.path.replacingOccurrences(of: #"/+$"#, with: "", options: .regularExpression)
+            + "/v1/audio/transcriptions"
+        return components.url
+    }
+
+    static func isLanguage(_ value: String) -> Bool {
+        value.range(of: #"^[a-z]{2,3}$"#, options: .regularExpression) != nil
+    }
+
+    /// Streams the multipart body to disk so long videos never sit in memory twice.
+    static func writeMultipart(audio: URL, to body: URL, boundary: String, language: String?) throws {
+        FileManager.default.createFile(atPath: body.path, contents: nil)
+        let out = try FileHandle(forWritingTo: body)
+        defer { try? out.close() }
+        func text(_ string: String) throws { try out.write(contentsOf: Data(string.utf8)) }
+        func field(_ name: String, _ value: String) throws {
+            try text("--\(boundary)\r\nContent-Disposition: form-data; name=\"\(name)\"\r\n\r\n\(value)\r\n")
+        }
+        try field("response_format", "verbose_json")
+        if let language { try field("language", language) }
+        try text("--\(boundary)\r\nContent-Disposition: form-data; name=\"file\"; filename=\"\(audio.lastPathComponent)\"\r\nContent-Type: application/octet-stream\r\n\r\n")
+        let input = try FileHandle(forReadingFrom: audio)
+        defer { try? input.close() }
+        while let chunk = try input.read(upToCount: 1 << 20), !chunk.isEmpty { try out.write(contentsOf: chunk) }
+        try text("\r\n--\(boundary)--\r\n")
+    }
+
+    static func segments(from data: Data) -> [String: Any] {
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let raw = json["segments"] as? [[String: Any]] else {
+            return ["error": "The speech server returned no timed segments"]
+        }
+        let segments: [[String: Any]] = raw.compactMap { segment in
+            guard let start = (segment["start"] as? NSNumber)?.doubleValue,
+                  let end = (segment["end"] as? NSNumber)?.doubleValue,
+                  let text = segment["text"] as? String else { return nil }
+            return ["start": start, "end": end, "text": text]
+        }
+        return ["segments": segments, "language": json["language"] as? String ?? ""]
+    }
+
+    private let queue = DispatchQueue(label: "app.readfrog.transcriber")
+    private var process: Process?
+    private var task: URLSessionUploadTask?
+    private var cancelled = false
+
+    func cancel() {
+        queue.async {
+            self.cancelled = true
+            self.process?.terminate()
+            self.task?.cancel()
+        }
+    }
+
+    func start(videoID: String, endpoint: URL, apiKey: String?, language: String?,
+               completion: @escaping ([String: Any]) -> Void) {
+        queue.async {
+            let work = FileManager.default.temporaryDirectory.appendingPathComponent("transcribe-" + UUID().uuidString)
+            func finish(_ result: [String: Any]) {
+                try? FileManager.default.removeItem(at: work)
+                completion(result)
+            }
+            do {
+                try FileManager.default.createDirectory(at: work, withIntermediateDirectories: true)
+                guard let tool = Bundle.main.resourceURL?.appendingPathComponent("yt-dlp/yt-dlp_macos"),
+                      FileManager.default.isExecutableFile(atPath: tool.path) else {
+                    return finish(["error": "yt-dlp is not bundled with this build"])
+                }
+                let process = Process()
+                process.executableURL = tool
+                process.arguments = ["--quiet", "--no-warnings", "--no-cache-dir", "--no-part", "--no-playlist",
+                                     "--retries", "3", "--match-filter", "duration <= 14400",
+                                     "-f", "bestaudio[ext=m4a]/bestaudio",
+                                     "-o", work.appendingPathComponent("audio.%(ext)s").path,
+                                     "--", "https://www.youtube.com/watch?v=" + videoID]
+                var environment = ProcessInfo.processInfo.environment
+                environment["TMPDIR"] = work.path + "/"
+                process.environment = environment
+                let errors = Pipe()
+                process.standardOutput = FileHandle.nullDevice
+                process.standardError = errors
+                guard !self.cancelled else { return finish(["cancelled": true]) }
+                self.process = process
+                try process.run()
+                let stderr = errors.fileHandleForReading.readDataToEndOfFile()
+                process.waitUntilExit()
+                self.process = nil
+                guard !self.cancelled else { return finish(["cancelled": true]) }
+                let audio = try FileManager.default.contentsOfDirectory(at: work, includingPropertiesForKeys: nil)
+                    .first { $0.lastPathComponent.hasPrefix("audio.") }
+                guard process.terminationStatus == 0, let audio else {
+                    let reason = String(decoding: stderr, as: UTF8.self)
+                        .split(separator: "\n").last.map(String.init) ?? "exit \(process.terminationStatus)"
+                    return finish(["error": "Audio download failed: " + String(reason.prefix(300))])
+                }
+
+                let boundary = "readfrog-" + UUID().uuidString
+                let body = work.appendingPathComponent("body")
+                try Self.writeMultipart(audio: audio, to: body, boundary: boundary, language: language)
+                var request = URLRequest(url: endpoint, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 1800)
+                request.httpMethod = "POST"
+                request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+                if let apiKey { request.setValue("Bearer " + apiKey, forHTTPHeaderField: "Authorization") }
+                let configuration = URLSessionConfiguration.ephemeral
+                configuration.timeoutIntervalForResource = 1800
+                let session = URLSession(configuration: configuration)
+                let task = session.uploadTask(with: request, fromFile: body) { data, response, error in
+                    session.finishTasksAndInvalidate()
+                    self.queue.async {
+                        self.task = nil
+                        if self.cancelled { return finish(["cancelled": true]) }
+                        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+                        guard error == nil, (200..<300).contains(status), let data else {
+                            let detail = error.map { $0.localizedDescription } ?? "HTTP \(status)"
+                            return finish(["error": "Speech server request failed: " + detail])
+                        }
+                        finish(Self.segments(from: data))
+                    }
+                }
+                self.task = task
+                task.resume()
+            } catch {
+                finish(["error": "Transcription failed: \(error.localizedDescription)"])
+            }
+        }
+    }
+}
+
 class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
+    private static var transcriptions: [String: VideoTranscriber] = [:]
+
     // Confine registry access to the main queue and namespace it by Safari
     // profile. No request can reuse another profile's session or cancel its work.
     private static var requests: [String: AccountHTTPTransport] = [:]
@@ -153,6 +296,33 @@ class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
                 return
             }
             let key = profile + ":" + id
+            switch message["type"] as? String {
+            case "read-frog-transcribe-cancel":
+                Self.transcriptions[key]?.cancel()
+                reply(["cancelled": true])
+                return
+            case "read-frog-transcribe":
+                let apiKey = (message["apiKey"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+                let language = (message["language"] as? String).flatMap { VideoTranscriber.isLanguage($0) ? $0 : nil }
+                guard let videoID = message["videoId"] as? String, VideoTranscriber.isVideoID(videoID),
+                      let endpoint = (message["server"] as? String).flatMap(VideoTranscriber.endpoint),
+                      apiKey.map({ !$0.contains("\r") && !$0.contains("\n") && $0.count <= 512 }) ?? true,
+                      Self.transcriptions[key] == nil, Self.transcriptions.count < 4 else {
+                    reply(["error": "Invalid transcription request"])
+                    return
+                }
+                let transcriber = VideoTranscriber()
+                Self.transcriptions[key] = transcriber
+                transcriber.start(videoID: videoID, endpoint: endpoint, apiKey: apiKey, language: language) { result in
+                    DispatchQueue.main.async {
+                        Self.transcriptions.removeValue(forKey: key)
+                        reply(result)
+                    }
+                }
+                return
+            default:
+                break
+            }
             if message["type"] as? String == "read-frog-account-cancel" {
                 Self.requests[key]?.cancel()
                 reply(["cancelled": true])

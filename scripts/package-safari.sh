@@ -45,9 +45,12 @@ xcodebuild -project "$project_root/$app_name/$app_name.xcodeproj" \
   CURRENT_PROJECT_VERSION="${SAFARI_BUILD_NUMBER:-1}" \
   MACOSX_DEPLOYMENT_TARGET="${SAFARI_MACOS_TARGET:-14.0}" "${signing[@]}" build
 app_path="$PWD/.safari/DerivedData/Build/Products/Release/$app_name.app"
+identity="-"
 if [[ -n "${SAFARI_TEAM_ID:-}" ]]; then
-  codesign --verify --deep --strict "$app_path"
+  identity=$(security find-identity -v -p codesigning | awk '/Apple Development/ { print $2; exit }')
+  [[ -n "$identity" ]] || { echo "No Apple Development signing identity found" >&2; exit 1; }
 fi
+bash scripts/embed-safari-ytdlp.sh "$app_path" "$identity"
 # Xcode registers the build product with Launch Services, which makes Safari
 # list a duplicate extension next to the copy installed in /Applications.
 lsregister=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister

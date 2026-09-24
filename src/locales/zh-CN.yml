@@ -1334,14 +1334,17 @@ options:
           description: 最大字幕条数：多少条字幕合并成一次请求。非 AI 的翻译服务不受这两项影响
     localService:
       title: 本地 AI 字幕
-      description: 通过陪读蛙本地服务，在这台 Mac 上用 Whisper 识别视频语音。不需要登录，也没有额度限制。地址留空时会自动检测本机运行的服务，检测不到则使用官方托管服务。
+      description: 由陪读翻译蛙 App 下载视频音频，交给你自己运行的语音识别服务（比如这台 Mac 上的 WhisperServer）转写。不需要登录，也没有额度限制。地址留空时会自动检测 WhisperServer，检测不到则使用官方托管服务。
       url:
-        title: 本地服务地址
-        description: 先运行 local-server/readfrog-local.sh start 启动服务，再填入它的地址
+        title: 语音识别服务地址
+        description: 任何兼容 OpenAI /v1/audio/transcriptions、能返回时间轴的服务都可以。WhisperServer 默认是 http://localhost:12017
+      apiKey:
+        title: API 密钥
+        description: 只有连接其他设备上的服务时才需要。本机请求不需要密钥
       test: 测试连接
       testing: 测试中...
       connected: 已连接 · $1
-      unreachable: 无法连接本地服务
+      unreachable: 无法连接语音识别服务
       failed: 本地识别失败：$1
     cache:
       title: 缓存

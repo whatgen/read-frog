@@ -24,6 +24,10 @@ import type { MatchedTerm } from "@/utils/glossary/types"
 import type { HostedAiStatus } from "@/utils/hosted-ai/types"
 import type { PromptableProviderRef, SerializableProviderRef } from "@/utils/providers/provider-ref"
 import type { EdgeTTSVoice } from "@/utils/server/edge-tts/types"
+import type {
+  LocalTranscribeRequest,
+  LocalTranscribeResult,
+} from "@/utils/subtitles/ai/local-service"
 import { defineExtensionMessaging } from "@webext-core/messaging"
 
 interface ProtocolMap {
@@ -186,6 +190,9 @@ interface ProtocolMap {
   getHostedAiStatus: () => Promise<HostedAiStatus | null>
   // network proxy
   backgroundFetch: (data: ProxyRequest) => Promise<ProxyResponse>
+  // local AI subtitles (Safari native handler)
+  localTranscribe: (data: LocalTranscribeRequest) => Promise<LocalTranscribeResult>
+  localTranscribeCancel: (data: { id: string }) => Promise<void>
   // cache management
   clearAllTranslationRelatedCache: () => Promise<void>
   clearAiSegmentationCache: () => Promise<void>

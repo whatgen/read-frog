@@ -1,18 +1,19 @@
-import type { ProxyRequest, ProxyResponse } from "@/types/proxy-fetch"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { fakeBrowser } from "wxt/testing/fake-browser"
 
-const sendMessageMock = vi.fn<(type: string, data: ProxyRequest) => Promise<ProxyResponse>>()
+const sendMessageMock = vi.fn<(type: string, data: any) => Promise<any>>()
 vi.mock("@/utils/message", () => ({ sendMessage: sendMessageMock }))
 
 const {
   checkLocalSubtitlesService,
   getLocalSubtitlesServiceUrl,
+  localSubtitlesApiKeyItem,
   localSubtitlesServiceUrlItem,
+  normalizeSegments,
   requestLocalAiSubtitles,
 } = await import("../local-service")
 
-function reply(status: number, body: unknown): ProxyResponse {
+function reply(status: number, body: unknown = {}) {
   return { status, statusText: "", headers: [], body: JSON.stringify(body) }
 }
 
@@ -22,92 +23,132 @@ const ctx = {
   durationSec: 19,
 }
 
-describe("local subtitles service", () => {
+describe("local AI subtitles", () => {
   beforeEach(() => {
     fakeBrowser.reset()
     sendMessageMock.mockReset()
-    vi.useRealTimers()
+    vi.stubEnv("BROWSER", "safari")
   })
 
-  it("falls back to the hosted service when no address is saved and nothing answers", async () => {
-    sendMessageMock.mockRejectedValueOnce(new Error("Failed to fetch"))
-    expect(await getLocalSubtitlesServiceUrl()).toBeNull()
-  })
-
-  it("detects a server running at the default address without setup", async () => {
-    sendMessageMock.mockResolvedValueOnce(reply(200, { ok: true, model: "whisper" }))
-    expect(await getLocalSubtitlesServiceUrl()).toBe("http://127.0.0.1:8765")
-    expect(sendMessageMock.mock.calls[0]![1].url).toBe("http://127.0.0.1:8765/health")
-  })
-
-  it("prefers a saved address and trims trailing slashes", async () => {
-    await localSubtitlesServiceUrlItem.setValue(" http://127.0.0.1:8765/ ")
-    expect(await getLocalSubtitlesServiceUrl()).toBe("http://127.0.0.1:8765")
-  })
-
-  it("creates a job, polls it and converts seconds to milliseconds", async () => {
-    vi.useFakeTimers()
-    sendMessageMock
-      .mockResolvedValueOnce(
-        reply(200, { id: "job1", status: "pending", detectedLanguage: null, error: null }),
-      )
-      .mockResolvedValueOnce(
-        reply(200, { id: "job1", status: "completed", detectedLanguage: "en", error: null }),
-      )
-      .mockResolvedValueOnce(
-        reply(200, { segments: [{ start: 1.5, end: 3, text: "hello" }], detectedLanguage: "en" }),
-      )
-
-    const pending = requestLocalAiSubtitles("http://127.0.0.1:8765", ctx)
-    await vi.advanceTimersByTimeAsync(1_000)
-    const result = await pending
-
-    expect(result).toEqual({
-      segments: [{ text: "hello", start: 1500, end: 3000 }],
-      detectedLanguage: "en",
+  describe("server discovery", () => {
+    it("is never used outside the Safari build", async () => {
+      vi.stubEnv("BROWSER", "chrome")
+      await localSubtitlesServiceUrlItem.setValue("http://localhost:12017")
+      expect(await getLocalSubtitlesServiceUrl()).toBeNull()
+      expect(sendMessageMock).not.toHaveBeenCalled()
     })
-    const create = sendMessageMock.mock.calls[0]![1]
-    expect(create).toMatchObject({
-      url: "http://127.0.0.1:8765/v1/transcripts",
-      method: "POST",
-      headers: [["Content-Type", "application/json"]],
+
+    it("detects WhisperServer at its default address", async () => {
+      sendMessageMock.mockResolvedValueOnce(reply(200))
+      expect(await getLocalSubtitlesServiceUrl()).toBe("http://localhost:12017")
+      expect(sendMessageMock.mock.calls[0]![1].url).toBe("http://localhost:12017/v1/models")
     })
-    expect(JSON.parse(create.body!)).toEqual({ url: ctx.url, durationSec: 19 })
-    expect(sendMessageMock.mock.calls[2]![1].url).toBe(
-      "http://127.0.0.1:8765/v1/transcripts/job1/subtitles",
-    )
-  })
 
-  it("surfaces a failed transcription", async () => {
-    sendMessageMock.mockResolvedValueOnce(
-      reply(200, {
-        id: "job1",
-        status: "failed",
-        detectedLanguage: null,
-        error: "download failed",
-      }),
-    )
-    await expect(requestLocalAiSubtitles("http://127.0.0.1:8765", ctx)).rejects.toThrow(
-      /localService\.failed/,
-    )
-  })
-
-  it("rejects server errors", async () => {
-    sendMessageMock.mockResolvedValueOnce(reply(400, { error: "unsupported_url" }))
-    await expect(requestLocalAiSubtitles("http://127.0.0.1:8765", ctx)).rejects.toThrow(
-      /localService\.failed/,
-    )
-  })
-
-  it("reports an unreachable server from the health check", async () => {
-    sendMessageMock.mockRejectedValueOnce(new Error("Failed to fetch"))
-    expect(await checkLocalSubtitlesService("http://127.0.0.1:8765")).toEqual({ ok: false })
-
-    sendMessageMock.mockResolvedValueOnce(reply(200, { ok: true, model: "whisper" }))
-    expect(await checkLocalSubtitlesService("http://127.0.0.1:8765/")).toEqual({
-      ok: true,
-      model: "whisper",
+    it("falls back to the hosted service when nothing answers", async () => {
+      sendMessageMock.mockRejectedValueOnce(new Error("Failed to fetch"))
+      expect(await getLocalSubtitlesServiceUrl()).toBeNull()
     })
-    expect(sendMessageMock.mock.calls[1]![1].url).toBe("http://127.0.0.1:8765/health")
+
+    it("prefers a saved address and sends the API key to it", async () => {
+      await localSubtitlesServiceUrlItem.setValue(" http://10.0.0.2:12017/ ")
+      await localSubtitlesApiKeyItem.setValue("ws-secret")
+      expect(await getLocalSubtitlesServiceUrl()).toBe("http://10.0.0.2:12017")
+
+      sendMessageMock.mockResolvedValueOnce(reply(401))
+      expect(await checkLocalSubtitlesService("http://10.0.0.2:12017")).toEqual({ ok: false })
+      expect(sendMessageMock.mock.calls[0]![1].headers).toEqual([
+        ["Authorization", "Bearer ws-secret"],
+      ])
+    })
+  })
+
+  describe("normalizeSegments", () => {
+    it("drops empty and zero-length segments and converts to milliseconds", () => {
+      expect(
+        normalizeSegments([
+          { start: 0, end: 2, text: " Hello. " },
+          { start: 5, end: 5, text: "ghost" },
+          { start: 6, end: 7, text: "   " },
+        ]),
+      ).toEqual([{ text: "Hello.", start: 0, end: 2000 }])
+    })
+
+    it("splits long segments at punctuation and shares the time span", () => {
+      const lines = normalizeSegments([
+        {
+          start: 10,
+          end: 30,
+          text: "We're no strangers to love, you know the rules, and so do I.",
+        },
+      ])
+      expect(lines.map((line) => line.text)).toEqual([
+        "We're no strangers to love,",
+        "you know the rules,",
+        "and so do I.",
+      ])
+      expect(lines[0]!.start).toBe(10_000)
+      expect(lines.at(-1)!.end).toBe(30_000)
+      for (let i = 1; i < lines.length; i++) expect(lines[i]!.start).toBe(lines[i - 1]!.end)
+    })
+
+    it("splits Chinese text at full-width punctuation", () => {
+      const lines = normalizeSegments([
+        { start: 0, end: 12, text: "大家好，欢迎收看今天的节目。我们今天来聊一聊人工智能和字幕。" },
+      ])
+      expect(lines.length).toBeGreaterThan(1)
+      expect(lines.map((line) => line.text).join("")).toBe(
+        "大家好，欢迎收看今天的节目。我们今天来聊一聊人工智能和字幕。",
+      )
+    })
+  })
+
+  describe("requestLocalAiSubtitles", () => {
+    it("relays through the native handler and caches the result", async () => {
+      await localSubtitlesApiKeyItem.setValue("ws-secret")
+      sendMessageMock.mockResolvedValueOnce({
+        segments: [{ start: 1.5, end: 3, text: "hello" }],
+        language: "en",
+      })
+
+      const first = await requestLocalAiSubtitles("http://localhost:12017/", ctx)
+      expect(first).toMatchObject({
+        segments: [{ text: "hello", start: 1500, end: 3000 }],
+        detectedLanguage: "en",
+      })
+      const [type, request] = sendMessageMock.mock.calls[0]!
+      expect(type).toBe("localTranscribe")
+      expect(request).toMatchObject({
+        videoId: "jNQXAC9IVRw",
+        server: "http://localhost:12017",
+        apiKey: "ws-secret",
+      })
+
+      const second = await requestLocalAiSubtitles("http://localhost:12017", ctx)
+      expect(second.segments).toEqual(first.segments)
+      expect(sendMessageMock).toHaveBeenCalledTimes(1)
+    })
+
+    it("surfaces native errors", async () => {
+      sendMessageMock.mockResolvedValueOnce({ error: "Audio download failed: HTTP 403" })
+      await expect(requestLocalAiSubtitles("http://localhost:12017", ctx)).rejects.toThrow(
+        /localService\.failed/,
+      )
+    })
+
+    it("cancels the native job when aborted", async () => {
+      let finish: (value: unknown) => void = () => {}
+      sendMessageMock.mockImplementation(async (type) => {
+        if (type === "localTranscribe") return new Promise((resolve) => (finish = resolve))
+        return undefined
+      })
+      const controller = new AbortController()
+      const pending = requestLocalAiSubtitles("http://localhost:12017", ctx, controller.signal)
+      await vi.waitFor(() => expect(sendMessageMock).toHaveBeenCalledTimes(1))
+      controller.abort()
+      finish({ cancelled: true })
+      await expect(pending).rejects.toThrow(/aborted/i)
+      const cancel = sendMessageMock.mock.calls.find(([type]) => type === "localTranscribeCancel")
+      expect(cancel?.[1].id).toBe(sendMessageMock.mock.calls[0]![1].id)
+    })
   })
 })

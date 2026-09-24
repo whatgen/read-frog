@@ -1334,14 +1334,17 @@ options:
           description: "Maximum subtitle lines: how many lines share one request. Providers that are not AI ignore both"
     localService:
       title: Local AI subtitles
-      description: Transcribe videos with Whisper on this Mac through the Read Frog local server. No sign-in and no quota. Leave the address empty to detect a server running on this Mac automatically, or use the hosted service when none answers.
+      description: The Safari app downloads the video's audio and sends it to a speech server you run, such as WhisperServer on this Mac. No sign-in and no quota. Leave the address empty to detect WhisperServer automatically, or use the hosted service when none answers.
       url:
-        title: Local server address
-        description: Start the server with local-server/readfrog-local.sh start, then enter its address
+        title: Speech server address
+        description: Any OpenAI-compatible /v1/audio/transcriptions server that returns timed segments. WhisperServer's default is http://localhost:12017
+      apiKey:
+        title: API key
+        description: Only needed for a server on another device. Requests from this Mac need no key
       test: Test connection
       testing: Testing...
       connected: Connected · $1
-      unreachable: Cannot reach the local server
+      unreachable: Cannot reach the speech server
       failed: "Local transcription failed: $1"
     cache:
       title: Cache
