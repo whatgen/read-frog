@@ -30,7 +30,9 @@ xcrun safari-web-extension-converter "$PWD/.output/safari-mv3" \
 # extension. Pin both generated target IDs so installation preserves extension data.
 python3 scripts/fix-safari-project.py "$project_root/$app_name" "$bundle_id"
 
-signing=(CODE_SIGNING_ALLOWED=NO)
+# Ad-hoc ("Sign to Run Locally") keeps the sandbox entitlements; a fully
+# unsigned extension is never registered with Safari.
+signing=(CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM=)
 if [[ -n "${SAFARI_TEAM_ID:-}" ]]; then
   signing=(CODE_SIGN_STYLE=Automatic CODE_SIGN_IDENTITY="Apple Development"
     DEVELOPMENT_TEAM="$SAFARI_TEAM_ID" -allowProvisioningUpdates)
