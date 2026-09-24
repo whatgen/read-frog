@@ -3,9 +3,19 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 # DEVELOPER_DIR can select Xcode without changing the machine-wide xcode-select.
-: "${DEVELOPER_DIR:=$(xcode-select -p)}"
+if [[ -z "${DEVELOPER_DIR:-}" ]]; then
+  DEVELOPER_DIR=$(xcode-select -p)
+  # Command Line Tools lack the converter; prefer an installed Xcode instead.
+  if [[ "$DEVELOPER_DIR" == */CommandLineTools && -d /Applications/Xcode.app ]]; then
+    DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+  fi
+fi
 export DEVELOPER_DIR
-xcrun --find safari-web-extension-converter >/dev/null
+if ! xcrun --find safari-web-extension-converter >/dev/null 2>&1; then
+  echo "safari-web-extension-converter not found in $DEVELOPER_DIR." >&2
+  echo "Install full Xcode, open it once, or set DEVELOPER_DIR to its Developer directory." >&2
+  exit 1
+fi
 pnpm build:safari
 mkdir -p .safari
 project_root=$(mktemp -d "$PWD/.safari/project.XXXXXX")
