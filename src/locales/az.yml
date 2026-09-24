@@ -1251,6 +1251,15 @@ options:
       loadError: Kvotanızı yükləmək mümkün olmadı. Daha sonra yenidən cəhd edin.
       remainingOf: $1 / $2 dəqiqə qalıb
       used: $1 dəqiqə istifadə edilib
+      selfHosted:
+        active: "Using your self-hosted AI subtitles server: $1"
+        transcribed: Transcribed $1 min on this server
+        title: Self-hosted AI subtitles server
+        description: Leave empty to detect a Read Frog transcript server on this computer ($1); when none answers, Read Frog's service is used. No sign-in or plan is needed for a self-hosted server
+        test: Test connection
+        testing: Testing...
+        connected: Connected · $1
+        unreachable: Cannot reach a Read Frog transcript server at this address
     style:
       title: Subtitr üslubu
       description: Canlı önbaxışla göstərilmə rejimini, mövqeyi, şriftləri, rəngləri və fonu təyin edin

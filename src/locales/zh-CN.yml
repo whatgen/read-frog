@@ -1251,6 +1251,15 @@ options:
       loadError: 无法加载额度，请稍后重试。
       remainingOf: 剩余 $1 / $2 分钟
       used: 已用 $1 分钟
+      selfHosted:
+        active: 正在使用自建 AI 字幕服务器：$1
+        transcribed: 这台服务器已转写 $1 分钟
+        title: 自建 AI 字幕服务器
+        description: 留空时自动检测这台电脑上的 Read Frog 字幕服务器（$1），检测不到就使用 Read Frog 官方服务。使用自建服务器不需要登录，也不需要会员
+        test: 测试连接
+        testing: 测试中...
+        connected: 已连接 · $1
+        unreachable: 这个地址上没有可用的 Read Frog 字幕服务器
     style:
       title: 字幕样式
       description: 显示模式、位置、字体、颜色和背景，都对着预览调

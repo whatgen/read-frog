@@ -4,11 +4,12 @@ import { RPCLink } from "@orpc/client/fetch"
 import { createTanstackQueryUtils } from "@orpc/tanstack-query"
 import { ORPC_PREFIX } from "@read-frog/definitions"
 import { env } from "@/env"
+import { resolveApiUrl } from "@/utils/subtitles/ai/self-hosted"
 import { normalizeHeaders } from "../http"
 import { sendMessage } from "../message"
 
 const link = new RPCLink({
-  url: `${env.WXT_API_URL}${ORPC_PREFIX}`,
+  url: async (_options, path) => `${await resolveApiUrl(path, env.WXT_API_URL)}${ORPC_PREFIX}`,
   headers: {
     "x-orpc-source": "extension",
   },
