@@ -51,6 +51,8 @@ export function proxyFetch() {
   // Listen for cookie changes to invalidate auth-related cache
   if (browser.cookies?.onChanged) {
     browser.cookies.onChanged.addListener(async (changeInfo) => {
+      // Safari can deliver change events without cookie details.
+      if (!changeInfo?.cookie) return
       const { cookie, removed, cause } = changeInfo
       // Check if it's an auth-related cookie for monitored domains
       if (

@@ -742,7 +742,8 @@ export function setupNotebasePendingSaveProcessor(waitUntilReady: () => Promise<
 
   if (browser.cookies?.onChanged) {
     browser.cookies.onChanged.addListener((changeInfo) => {
-      if (isAuthCookieChange(changeInfo.cookie)) {
+      // Safari can deliver change events without cookie details.
+      if (changeInfo?.cookie && isAuthCookieChange(changeInfo.cookie)) {
         void processPendingNotebaseSave("auth-cookie-change")
       }
     })

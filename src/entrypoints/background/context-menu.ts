@@ -10,7 +10,7 @@ import {
   TRANSLATION_STATE_KEY_PREFIX,
 } from "@/utils/constants/storage-keys"
 import { getSelectionToolbarActions } from "@/utils/custom-actions"
-import { i18n } from "@/utils/i18n"
+import { i18n, isI18nInitialized } from "@/utils/i18n"
 import { sendMessage } from "@/utils/message"
 import { ensureInitializedConfig } from "./config"
 import { getPageTranslationEnabled, setPageTranslationEnabled } from "./page-translation-state"
@@ -32,7 +32,9 @@ function getSelectionCustomActionMenuId(actionId: string) {
 export function registerContextMenuListeners() {
   // Listen for config changes to update context menu
   storage.watch<Config>(`local:${CONFIG_STORAGE_KEY}`, async (newConfig) => {
-    if (newConfig) {
+    // Startup config writes can land before i18n is ready, which would create menus
+    // with empty titles (Safari rejects them). initializeContextMenu covers startup.
+    if (newConfig && isI18nInitialized()) {
       await updateContextMenuItems(newConfig)
     }
   })

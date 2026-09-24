@@ -84,6 +84,11 @@ export async function initI18n(uiLanguage: UiLanguage = "auto"): Promise<void> {
   await init({ ...I18NEXT_OPTIONS, lng })
 }
 
+/** Whether initI18n has run in this JS context; before that every `i18n.t` returns "". */
+export function isI18nInitialized(): boolean {
+  return initialized
+}
+
 /** Switch the active UI language (synchronous with bundled resources). */
 export async function setUiLanguage(uiLanguage: UiLanguage): Promise<void> {
   await changeLanguage(resolveUiLocale(uiLanguage))
