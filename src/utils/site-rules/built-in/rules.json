@@ -882,6 +882,7 @@
     "id": "substack",
     "matches": ["*.substack.com", "newsletter.rootsofprogress.org", "www.lennysnewsletter.com"],
     "excludeSelectors": [
+      ".shows-video-player-container",
       ".publication-footer",
       ".subscribe-footer",
       ".main-menu",
@@ -1226,7 +1227,8 @@
       "div[data-content-feature='1'] > div {-webkit-line-clamp: unset!important;max-height: unset!important;}",
       "div[style='-webkit-line-clamp:*'] {-webkit-line-clamp: unset!important;max-height: unset!important;}",
       ".Pw4Ldf.RsCEN {height:unset!important;}",
-      ".related-question-pair {overflow:auto!important;}"
+      ".related-question-pair {overflow:auto!important;}",
+      "[role=dialog][data-skip-highlighting] :has(.read-frog-translated-content-wrapper) {-webkit-line-clamp: unset!important;max-height: unset!important;}"
     ]
   },
   {

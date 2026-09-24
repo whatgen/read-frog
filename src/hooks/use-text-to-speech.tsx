@@ -1,7 +1,7 @@
 import type {
-  AnalyticsSurface,
   FeatureProviderAnalytics,
   FeatureUsageContext,
+  SurfaceByFeature,
 } from "@/types/analytics"
 import type { TTSConfig } from "@/types/config/tts"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
@@ -26,7 +26,7 @@ const safariPlayback =
 interface PlayAudioParams {
   text: string
   ttsConfig: TTSConfig
-  analyticsContext: FeatureUsageContext & FeatureProviderAnalytics
+  analyticsContext: FeatureUsageContext<"text_to_speech"> & FeatureProviderAnalytics
   forcedVoice?: string
   playbackReady?: Promise<void>
 }
@@ -135,7 +135,9 @@ async function synthesizeEdgeTTSAudioChunk(
   }
 }
 
-export function useTextToSpeech(surface: AnalyticsSurface = ANALYTICS_SURFACE.SELECTION_TOOLBAR) {
+export function useTextToSpeech(
+  surface: SurfaceByFeature["text_to_speech"] = ANALYTICS_SURFACE.SELECTION_TOOLBAR,
+) {
   const queryClient = useQueryClient()
   const languageDetection = useAtomValue(configFieldsAtomMap.languageDetection)
   const [isPlaying, setIsPlaying] = useState(false)

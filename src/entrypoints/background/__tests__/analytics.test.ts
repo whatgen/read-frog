@@ -8,10 +8,6 @@ import {
   resolveDistinctIdOverride,
 } from "../analytics"
 
-type MessageHandler<TData, TResult = void> = (message: {
-  data: TData
-}) => TResult | Promise<TResult>
-
 type PostHogCaptureMock = (...args: Parameters<PostHog["capture"]>) => void
 type PostHogInitMock = (...args: Parameters<PostHog["init"]>) => void
 type PostHogRegisterMock = (...args: Parameters<PostHog["register"]>) => void
@@ -21,23 +17,28 @@ const DEFAULT_FEATURE_PROVIDER = {
   backend_kind: "llm",
 } as const
 
+const PAGE_EVENT_FIELDS = {
+  ...DEFAULT_FEATURE_PROVIDER,
+  target_language: "cmn",
+  translation_mode: "bilingual",
+  source_language: "jpn",
+} as const
+
+const TTS_EVENT = {
+  feature: "text_to_speech",
+  surface: "tts_settings",
+  outcome: "success",
+  latency_ms: 100,
+  ...DEFAULT_FEATURE_PROVIDER,
+} as const
+
 describe("background analytics", () => {
-  let trackFeatureUsedEventHandler: MessageHandler<FeatureUsedEventProperties> | undefined
   let storageGetItemMock = vi.fn<(key: string) => Promise<unknown>>()
   let storageSetItemMock = vi.fn<(key: string, value: unknown) => Promise<void>>()
-  let getTargetLanguageMock = vi.fn<() => Promise<"cmn" | undefined>>()
   let posthogInitMock = vi.fn<PostHogInitMock>()
   let posthogCaptureMock = vi.fn<PostHogCaptureMock>()
   let posthogRegisterMock = vi.fn<PostHogRegisterMock>()
   let loggerWarnMock = vi.fn<(...args: unknown[]) => void>()
-
-  function requireMessageHandler<TData>(
-    handler: MessageHandler<TData> | undefined,
-    name: string,
-  ): MessageHandler<TData> {
-    if (!handler) throw new Error(`Message handler not registered: ${name}`)
-    return handler
-  }
 
   function createAnalytics(overrides?: {
     apiHost?: string
@@ -61,12 +62,6 @@ describe("background analytics", () => {
       featureUsageCache: overrides?.featureUsageCache,
       getCurrentDate: overrides?.getCurrentDate ?? (() => new Date("2026-07-14T12:00:00.000Z")),
       getStorageItem: storageGetItemMock,
-      getTargetLanguage: getTargetLanguageMock,
-      messageRegistrar: {
-        registerTrackFeatureUsedEvent(handler) {
-          trackFeatureUsedEventHandler = handler
-        },
-      },
       posthog: {
         init: posthogInitMock,
         capture: posthogCaptureMock,
@@ -104,12 +99,10 @@ describe("background analytics", () => {
   }
 
   beforeEach(() => {
-    trackFeatureUsedEventHandler = undefined
     storageGetItemMock = vi.fn<(key: string) => Promise<unknown>>()
     storageSetItemMock = vi
       .fn<(key: string, value: unknown) => Promise<void>>()
       .mockResolvedValue(undefined)
-    getTargetLanguageMock = vi.fn<() => Promise<"cmn" | undefined>>().mockResolvedValue("cmn")
     posthogInitMock = vi.fn<PostHogInitMock>()
     posthogCaptureMock = vi.fn<PostHogCaptureMock>()
     posthogRegisterMock = vi.fn<PostHogRegisterMock>()
@@ -119,18 +112,13 @@ describe("background analytics", () => {
   it("registers a handler that initializes PostHog with the shared anonymous distinct ID", async () => {
     storageGetItemMock.mockResolvedValueOnce(true).mockResolvedValueOnce("install-123")
 
-    const { setupAnalyticsMessageHandlers } = createAnalytics()
-    setupAnalyticsMessageHandlers()
-
-    const handler = requireMessageHandler(trackFeatureUsedEventHandler, "trackFeatureUsedEvent")
-    await handler({
-      data: {
-        feature: "page_translation",
-        surface: "popup",
-        outcome: "success",
-        latency_ms: 1_500,
-        ...DEFAULT_FEATURE_PROVIDER,
-      },
+    const { captureFeatureUsedEventInBackground } = createAnalytics()
+    await captureFeatureUsedEventInBackground({
+      feature: "page_translation",
+      surface: "popup",
+      outcome: "success",
+      latency_ms: 1_500,
+      ...PAGE_EVENT_FIELDS,
     })
 
     expect(posthogInitMock).toHaveBeenCalledWith(
@@ -162,37 +150,32 @@ describe("background analytics", () => {
       surface: "popup",
       outcome: "success",
       latency_ms: 1_500,
-      ...DEFAULT_FEATURE_PROVIDER,
-      target_language: "cmn",
+      ...PAGE_EVENT_FIELDS,
     })
     expect(storageSetItemMock).not.toHaveBeenCalled()
   })
 
-  it("downgrades legacy feature messages without provider fields to unknown/unknown", async () => {
+  it("downgrades a legacy TTS message without provider fields to unknown/unknown", async () => {
     storageGetItemMock.mockResolvedValueOnce(true).mockResolvedValueOnce("install-123")
 
-    const { setupAnalyticsMessageHandlers } = createAnalytics()
-    setupAnalyticsMessageHandlers()
-
-    const handler = requireMessageHandler(trackFeatureUsedEventHandler, "trackFeatureUsedEvent")
+    const { captureFeatureUsedEventInBackground } = createAnalytics()
     const legacyProperties = {
-      feature: "page_translation",
-      surface: "popup",
+      feature: "text_to_speech",
+      surface: "tts_settings",
       outcome: "success",
       latency_ms: 250,
     } as unknown as FeatureUsedEventProperties
 
-    await handler({ data: legacyProperties })
+    await captureFeatureUsedEventInBackground(legacyProperties)
 
     expect(posthogCaptureMock).toHaveBeenCalledWith("feature_used", {
       ...legacyProperties,
       provider: "unknown",
       backend_kind: "unknown",
-      target_language: "cmn",
     })
   })
 
-  it("adds the configured target language to non-translation feature events", async () => {
+  it("does not add a target language to non-translation feature events", async () => {
     storageGetItemMock.mockResolvedValueOnce(true).mockResolvedValueOnce("install-123")
 
     const { captureFeatureUsedEventInBackground } = createAnalytics()
@@ -210,8 +193,139 @@ describe("background analytics", () => {
       outcome: "success",
       latency_ms: 100,
       ...DEFAULT_FEATURE_PROVIDER,
-      target_language: "cmn",
     })
+  })
+
+  it("adds the sender tab's hostname and the char count to text feature events", async () => {
+    storageGetItemMock.mockResolvedValueOnce(true).mockResolvedValueOnce("install-123")
+
+    const { captureFeatureUsedEventInBackground } = createAnalytics()
+    await captureFeatureUsedEventInBackground(
+      {
+        feature: "selection_translation",
+        surface: "selection_toolbar",
+        outcome: "success",
+        latency_ms: 100,
+        char_count: 42,
+        target_language: "kor",
+        ...DEFAULT_FEATURE_PROVIDER,
+      },
+      { id: 42, url: "https://github.com/org/repo/issues/1?q=secret#frag" },
+    )
+
+    expect(posthogCaptureMock).toHaveBeenCalledWith("feature_used", {
+      feature: "selection_translation",
+      surface: "selection_toolbar",
+      outcome: "success",
+      latency_ms: 100,
+      char_count: 42,
+      target_language: "kor",
+      ...DEFAULT_FEATURE_PROVIDER,
+      site_domain: "github.com",
+    })
+  })
+
+  it("reports no site domain for non-web tabs", async () => {
+    storageGetItemMock.mockResolvedValueOnce(true).mockResolvedValueOnce("install-123")
+
+    const { captureFeatureUsedEventInBackground } = createAnalytics()
+    await captureFeatureUsedEventInBackground(
+      { ...TTS_EVENT },
+      { id: 42, url: "chrome-extension://abc/translation-hub.html" },
+    )
+
+    expect(posthogCaptureMock).toHaveBeenCalledWith(
+      "feature_used",
+      expect.not.objectContaining({ site_domain: expect.anything() }),
+    )
+  })
+
+  it("forwards the page source language and translation mode from the sender", async () => {
+    storageGetItemMock.mockResolvedValueOnce(true).mockResolvedValueOnce("install-123")
+
+    const { captureFeatureUsedEventInBackground } = createAnalytics()
+    await captureFeatureUsedEventInBackground(
+      {
+        feature: "page_translation",
+        surface: "popup",
+        outcome: "success",
+        latency_ms: 100,
+        ...PAGE_EVENT_FIELDS,
+      },
+      { id: 42, url: "https://www.nikkei.com/article/1" },
+    )
+
+    expect(posthogCaptureMock).toHaveBeenCalledWith("feature_used", {
+      feature: "page_translation",
+      surface: "popup",
+      outcome: "success",
+      latency_ms: 100,
+      ...PAGE_EVENT_FIELDS,
+      site_domain: "www.nikkei.com",
+    })
+  })
+
+  it("drops properties that the reported feature does not define", async () => {
+    storageGetItemMock.mockResolvedValueOnce(true).mockResolvedValueOnce("install-123")
+
+    const { captureFeatureUsedEventInBackground } = createAnalytics()
+    await captureFeatureUsedEventInBackground({
+      ...TTS_EVENT,
+      char_count: 7,
+      target_language: "cmn",
+      source_language: "jpn",
+      translation_mode: "bilingual",
+    } as unknown as FeatureUsedEventProperties)
+
+    expect(posthogCaptureMock).toHaveBeenCalledWith("feature_used", TTS_EVENT)
+  })
+
+  it("drops an incomplete page event instead of inventing required fields", async () => {
+    storageGetItemMock.mockResolvedValueOnce(true).mockResolvedValueOnce("install-123")
+
+    const { captureFeatureUsedEventInBackground } = createAnalytics()
+    await captureFeatureUsedEventInBackground(
+      {
+        feature: "page_translation",
+        surface: "popup",
+        outcome: "success",
+        latency_ms: 100,
+        ...DEFAULT_FEATURE_PROVIDER,
+      } as unknown as FeatureUsedEventProperties,
+      { id: 42, url: "https://github.com/" },
+    )
+
+    expect(posthogCaptureMock).not.toHaveBeenCalled()
+    expect(loggerWarnMock).toHaveBeenCalled()
+  })
+
+  it("drops an unknown note-suggestion stage without throwing", async () => {
+    storageGetItemMock.mockResolvedValueOnce(true)
+    const { captureFeatureUsedEventInBackground } = createAnalytics()
+
+    await expect(
+      captureFeatureUsedEventInBackground({
+        feature: "note_suggestion",
+        surface: "selection_toolbar",
+        outcome: "success",
+        latency_ms: 100,
+        action_id: "unexpected_stage",
+        ...DEFAULT_FEATURE_PROVIDER,
+      } as unknown as FeatureUsedEventProperties),
+    ).resolves.toBeUndefined()
+
+    expect(posthogCaptureMock).not.toHaveBeenCalled()
+  })
+
+  it("keeps site_domain and char_count through the PostHog property filter", () => {
+    const filtered = filterAnalyticsCaptureResult({
+      event: "feature_used",
+      properties: { site_domain: "github.com", char_count: 42 },
+      timestamp: new Date("2026-03-16T19:02:43.960Z"),
+      uuid: "test-uuid",
+    }).properties
+
+    expect(filtered).toEqual({ site_domain: "github.com", char_count: 42 })
   })
 
   it("keeps reporting repeated feature events when no cache is configured", async () => {
@@ -222,7 +336,7 @@ describe("background analytics", () => {
       surface: "popup",
       outcome: "success",
       latency_ms: 100,
-      ...DEFAULT_FEATURE_PROVIDER,
+      ...PAGE_EVENT_FIELDS,
     }
 
     await captureFeatureUsedEventInBackground(properties)
@@ -266,7 +380,6 @@ describe("background analytics", () => {
       ...DEFAULT_FEATURE_PROVIDER,
       action_id: "dictionary",
       action_name: "Dictionary",
-      target_language: "cmn",
     })
     expect(cache.setLastReportedDay).toHaveBeenCalledOnce()
   })
@@ -283,7 +396,7 @@ describe("background analytics", () => {
       surface: "popup",
       outcome: "success",
       latency_ms: 100,
-      ...DEFAULT_FEATURE_PROVIDER,
+      ...PAGE_EVENT_FIELDS,
     })
     await captureFeatureUsedEventInBackground({
       feature: "text_to_speech",
@@ -319,6 +432,7 @@ describe("background analytics", () => {
       latency_ms: 200,
       ...DEFAULT_FEATURE_PROVIDER,
       action_id: "suggestion_accepted",
+      action_name: "Dictionary",
     })
 
     // Both funnel steps captured; the daily cache is never consulted for them.
@@ -340,7 +454,7 @@ describe("background analytics", () => {
       surface: "popup",
       outcome: "success",
       latency_ms: 100,
-      ...DEFAULT_FEATURE_PROVIDER,
+      ...PAGE_EVENT_FIELDS,
     }
 
     await captureFeatureUsedEventInBackground(properties)
@@ -364,7 +478,7 @@ describe("background analytics", () => {
       surface: "popup",
       outcome: "success",
       latency_ms: 100,
-      ...DEFAULT_FEATURE_PROVIDER,
+      ...PAGE_EVENT_FIELDS,
     }
 
     await Promise.all([
@@ -385,7 +499,7 @@ describe("background analytics", () => {
       surface: "popup",
       outcome: "success",
       latency_ms: 100,
-      ...DEFAULT_FEATURE_PROVIDER,
+      ...PAGE_EVENT_FIELDS,
     }
 
     await createAnalytics({ featureUsageCache: cache }).captureFeatureUsedEventInBackground(
@@ -415,7 +529,7 @@ describe("background analytics", () => {
       surface: "popup",
       outcome: "success",
       latency_ms: 100,
-      ...DEFAULT_FEATURE_PROVIDER,
+      ...PAGE_EVENT_FIELDS,
     })
 
     expect(posthogCaptureMock).toHaveBeenCalledOnce()
@@ -443,7 +557,7 @@ describe("background analytics", () => {
       surface: "popup",
       outcome: "success",
       latency_ms: 100,
-      ...DEFAULT_FEATURE_PROVIDER,
+      ...PAGE_EVENT_FIELDS,
     })
 
     expect(posthogCaptureMock).toHaveBeenCalledOnce()
@@ -467,7 +581,7 @@ describe("background analytics", () => {
       surface: "popup",
       outcome: "success",
       latency_ms: 100,
-      ...DEFAULT_FEATURE_PROVIDER,
+      ...PAGE_EVENT_FIELDS,
     }
 
     await captureFeatureUsedEventInBackground(properties)
@@ -486,7 +600,7 @@ describe("background analytics", () => {
       surface: "popup",
       outcome: "success",
       latency_ms: 1_500,
-      ...DEFAULT_FEATURE_PROVIDER,
+      ...PAGE_EVENT_FIELDS,
     })
 
     expect(posthogInitMock).not.toHaveBeenCalled()
@@ -505,7 +619,7 @@ describe("background analytics", () => {
       surface: "popup",
       outcome: "success",
       latency_ms: 100,
-      ...DEFAULT_FEATURE_PROVIDER,
+      ...PAGE_EVENT_FIELDS,
     })
 
     expect(cache.getLastReportedDay).not.toHaveBeenCalled()
@@ -523,7 +637,7 @@ describe("background analytics", () => {
       surface: "popup",
       outcome: "success",
       latency_ms: 100,
-      ...DEFAULT_FEATURE_PROVIDER,
+      ...PAGE_EVENT_FIELDS,
     })
 
     expect(posthogInitMock).not.toHaveBeenCalled()
@@ -539,7 +653,7 @@ describe("background analytics", () => {
       surface: "popup",
       outcome: "success",
       latency_ms: 100,
-      ...DEFAULT_FEATURE_PROVIDER,
+      ...PAGE_EVENT_FIELDS,
     })
 
     expect(storageSetItemMock).toHaveBeenCalledWith(
@@ -573,7 +687,7 @@ describe("background analytics", () => {
       surface: "popup",
       outcome: "success",
       latency_ms: 100,
-      ...DEFAULT_FEATURE_PROVIDER,
+      ...PAGE_EVENT_FIELDS,
     })
 
     expect(posthogInitMock).toHaveBeenCalledWith(
@@ -598,7 +712,7 @@ describe("background analytics", () => {
       surface: "popup",
       outcome: "success",
       latency_ms: 100,
-      ...DEFAULT_FEATURE_PROVIDER,
+      ...PAGE_EVENT_FIELDS,
     })
 
     expect(posthogInitMock).toHaveBeenCalledWith(
@@ -626,7 +740,7 @@ describe("background analytics", () => {
       surface: "popup",
       outcome: "failure",
       latency_ms: 42,
-      ...DEFAULT_FEATURE_PROVIDER,
+      ...PAGE_EVENT_FIELDS,
     })
 
     expect(posthogInitMock).not.toHaveBeenCalled()
