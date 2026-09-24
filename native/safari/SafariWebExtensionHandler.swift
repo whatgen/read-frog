@@ -1,5 +1,9 @@
 import Foundation
+import OSLog
 import SafariServices
+
+// Transcription diagnostics: `log stream --predicate 'subsystem == "app.readfrog.safari"'`.
+let transcriptionLog = Logger(subsystem: "app.readfrog.safari", category: "transcription")
 
 // One ephemeral network session per request: neither cookies nor account data
 // are retained in an App-owned cookie jar, cache, preferences, or log.
@@ -197,6 +201,7 @@ final class VideoTranscriber {
     private var isCancelled: Bool { lock.withLock { cancelled } }
 
     func cancel() {
+        transcriptionLog.info("cancel requested")
         let (process, task) = lock.withLock { () -> (Process?, URLSessionUploadTask?) in
             cancelled = true
             return (self.process, self.task)
@@ -209,8 +214,13 @@ final class VideoTranscriber {
                completion: @escaping ([String: Any]) -> Void) {
         DispatchQueue.global(qos: .userInitiated).async {
             let work = FileManager.default.temporaryDirectory.appendingPathComponent("transcribe-" + UUID().uuidString)
+            let began = Date()
+            transcriptionLog.info("start \(videoID, privacy: .public) -> \(endpoint.host ?? "", privacy: .public)")
             func finish(_ result: [String: Any]) {
                 try? FileManager.default.removeItem(at: work)
+                let outcome = result["error"].map { "error: \($0)" }
+                    ?? (result["cancelled"] != nil ? "cancelled" : "\((result["segments"] as? [Any])?.count ?? 0) segments")
+                transcriptionLog.info("finish \(videoID, privacy: .public) after \(Int(Date().timeIntervalSince(began)))s: \(outcome, privacy: .public)")
                 completion(result)
             }
             do {
@@ -251,6 +261,7 @@ final class VideoTranscriber {
                     return finish(["error": "Audio download failed: " + String(reason.prefix(300))])
                 }
 
+                transcriptionLog.info("audio \(videoID, privacy: .public) ready after \(Int(Date().timeIntervalSince(began)))s")
                 let boundary = "readfrog-" + UUID().uuidString
                 let body = work.appendingPathComponent("body")
                 try Self.writeMultipart(audio: audio, to: body, boundary: boundary, language: language)
@@ -259,6 +270,9 @@ final class VideoTranscriber {
                 request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
                 if let apiKey { request.setValue("Bearer " + apiKey, forHTTPHeaderField: "Authorization") }
                 let configuration = URLSessionConfiguration.ephemeral
+                // The server sends nothing until it has transcribed everything; the
+                // 60 s default idle timeout would abort every long video.
+                configuration.timeoutIntervalForRequest = 1800
                 configuration.timeoutIntervalForResource = 1800
                 let session = URLSession(configuration: configuration)
                 let task = session.uploadTask(with: request, fromFile: body) { data, response, error in
