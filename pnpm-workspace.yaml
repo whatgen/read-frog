@@ -15,6 +15,3 @@ allowBuilds:
   msw: true
   nx: true
   spawn-sync: true
-
-patchedDependencies:
-  jotai@3.0.0: patches/jotai@3.0.0.patch

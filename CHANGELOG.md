@@ -1,5 +1,25 @@
 # @read-frog/extension
 
+## 1.48.1
+
+### Patch Changes
+
+- [#2235](https://github.com/mengxi-ream/read-frog/pull/2235) [`b81a4b9`](https://github.com/mengxi-ream/read-frog/commit/b81a4b961d68f6765118f114bf62b60dfbf1599b) Thanks [@mengxi-ream](https://github.com/mengxi-ream)! - fix(subtitles): keep YouTube auto-generated captions visible for their full cue duration
+
+- [#2234](https://github.com/mengxi-ream/read-frog/pull/2234) [`1c39cd1`](https://github.com/mengxi-ream/read-frog/commit/1c39cd10dcf631f8ae5e2e2fc57dd8fda92e5e9b) Thanks [@mengxi-ream](https://github.com/mengxi-ream)! - fix(subtitles): keep the video subtitle switch in sync across YouTube navigation
+
+## 1.48.0
+
+### Minor Changes
+
+- [#2227](https://github.com/mengxi-ream/read-frog/pull/2227) [`dd108c2`](https://github.com/mengxi-ream/read-frog/commit/dd108c23d8db899ea40d8dad58a204d7b8e557ae) Thanks [@mengxi-ream](https://github.com/mengxi-ream)! - feat(translation-hub): support built-in AI translation and share the settings page layout
+
+- [#2230](https://github.com/mengxi-ream/read-frog/pull/2230) [`7847602`](https://github.com/mengxi-ream/read-frog/commit/7847602f6709e71b7a65453eeee771b1b2f06f6e) Thanks [@mengxi-ream](https://github.com/mengxi-ream)! - feat(translation-hub): persist selections and stream built-in AI directly
+
+### Patch Changes
+
+- [#2228](https://github.com/mengxi-ream/read-frog/pull/2228) [`af8dfeb`](https://github.com/mengxi-ream/read-frog/commit/af8dfebc24309ca4993e24b61e79467508e1b261) Thanks [@mengxi-ream](https://github.com/mengxi-ream)! - feat(translation-hub): speak source and translated text
+
 ## 1.47.5
 
 ### Patch Changes

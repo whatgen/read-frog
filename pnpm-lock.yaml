@@ -162,9 +162,6 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
-patchedDependencies:
-  jotai@3.0.0: 05090e1dc8a8d7adf6ff96f2d3898cdd8e8068d7bfe36c89aac623d5b1a34fea
-
 importers:
 
   .:
@@ -396,10 +393,10 @@ importers:
         version: 26.4.2(typescript@7.0.2)
       jotai:
         specifier: ^3.0.0
-        version: 3.0.0(patch_hash=05090e1dc8a8d7adf6ff96f2d3898cdd8e8068d7bfe36c89aac623d5b1a34fea)(@types/react@19.3.0)(react@19.3.0)
+        version: 3.0.0(@types/react@19.3.0)(react@19.3.0)
       jotai-family:
         specifier: ^1.1.0
-        version: 1.1.0(jotai@3.0.0(patch_hash=05090e1dc8a8d7adf6ff96f2d3898cdd8e8068d7bfe36c89aac623d5b1a34fea)(@types/react@19.3.0)(react@19.3.0))
+        version: 1.1.0(jotai@3.0.0(@types/react@19.3.0)(react@19.3.0))
       js-sha256:
         specifier: ^1.0.0
         version: 1.0.0
@@ -523,7 +520,7 @@ importers:
         version: 17.5.1
       node:
         specifier: runtime:^26.9.0
-        version: runtime:26.10.0
+        version: runtime:26.9.0
       nx:
         specifier: ^23.2.1
         version: 23.2.1
@@ -5631,7 +5628,7 @@ packages:
     resolution: {integrity: sha512-YHs7BmmcsdAI5Ozuf8JZo6PT0mv2GIWC9vMfvUC3dp65M8hn7Ux8CPL+2oBI7juNuj9d0ndhTcznq2ODBps9cQ==}
     engines: {node: '>=18'}
 
-  node@runtime:26.10.0:
+  node@runtime:26.9.0:
     resolution:
       type: variations
       variants:
@@ -5639,9 +5636,9 @@ packages:
             archive: tarball
             bin:
               node: bin/node
-            integrity: sha256-9ak/5zz1WDQU1Ni+WYxOx+cr4ygbWCDUlcKhXOaqE8g=
+            integrity: sha256-CfBOC34bExUGVxGJbiFLQ1jcn0xCUEtiKwWeJgjU1z0=
             type: binary
-            url: https://nodejs.org/download/release/v26.10.0/node-v26.10.0-aix-ppc64.tar.gz
+            url: https://nodejs.org/download/release/v26.9.0/node-v26.9.0-aix-ppc64.tar.gz
           targets:
             - cpu: ppc64
               os: aix
@@ -5649,9 +5646,9 @@ packages:
             archive: tarball
             bin:
               node: bin/node
-            integrity: sha256-dR/fdDnxFdh+4qjz8YwGW2FRhSBo4+ZmrGCsKZb3Wsk=
+            integrity: sha256-bz3n7YU+4oO0vyS25CZhjx01dAHOWBXbGGbrhetLBdk=
             type: binary
-            url: https://nodejs.org/download/release/v26.10.0/node-v26.10.0-darwin-arm64.tar.gz
+            url: https://nodejs.org/download/release/v26.9.0/node-v26.9.0-darwin-arm64.tar.gz
           targets:
             - cpu: arm64
               os: darwin
@@ -5659,9 +5656,9 @@ packages:
             archive: tarball
             bin:
               node: bin/node
-            integrity: sha256-676aubWK1rtUOQ1uLIYsGvp9RHX7foroFGrN4hG/cN8=
+            integrity: sha256-BrLnQu2QJdyErcgwJDs/cxlW6snDIbzNDt44QgmvAqg=
             type: binary
-            url: https://nodejs.org/download/release/v26.10.0/node-v26.10.0-darwin-x64.tar.gz
+            url: https://nodejs.org/download/release/v26.9.0/node-v26.9.0-darwin-x64.tar.gz
           targets:
             - cpu: x64
               os: darwin
@@ -5669,9 +5666,9 @@ packages:
             archive: tarball
             bin:
               node: bin/node
-            integrity: sha256-QjpBv/jiovoV5wL+/ikZ75WCOyN4dE2sy4Q5MCU0tE8=
+            integrity: sha256-1Qd1kao4tI2Qv5s6wQ2o0vQNziibIClJE8WMGfFT6xI=
             type: binary
-            url: https://nodejs.org/download/release/v26.10.0/node-v26.10.0-linux-arm64.tar.gz
+            url: https://nodejs.org/download/release/v26.9.0/node-v26.9.0-linux-arm64.tar.gz
           targets:
             - cpu: arm64
               os: linux
@@ -5679,9 +5676,9 @@ packages:
             archive: tarball
             bin:
               node: bin/node
-            integrity: sha256-DMa5qZBiFvjefXAUYDj+a6tffo86itKdjb6r3xOBtS0=
+            integrity: sha256-ORTOE6zySIDM6zSmlnIG3i+Mqg/vk/FCoN2xTDYyjzU=
             type: binary
-            url: https://nodejs.org/download/release/v26.10.0/node-v26.10.0-linux-ppc64le.tar.gz
+            url: https://nodejs.org/download/release/v26.9.0/node-v26.9.0-linux-ppc64le.tar.gz
           targets:
             - cpu: ppc64le
               os: linux
@@ -5689,9 +5686,9 @@ packages:
             archive: tarball
             bin:
               node: bin/node
-            integrity: sha256-eHQCtH8Pj9RioZpEw9cHBSyryV7LlG/oBBobXIEOPWM=
+            integrity: sha256-xThv+JaOrfZt15IJNVs4wB7nEsbP0yuSu8ycxNxN4P0=
             type: binary
-            url: https://nodejs.org/download/release/v26.10.0/node-v26.10.0-linux-s390x.tar.gz
+            url: https://nodejs.org/download/release/v26.9.0/node-v26.9.0-linux-s390x.tar.gz
           targets:
             - cpu: s390x
               os: linux
@@ -5699,9 +5696,9 @@ packages:
             archive: tarball
             bin:
               node: bin/node
-            integrity: sha256-G99gyBQeUVJgS6+LOPMeGRs3lPYPzitxNR54xAIfAWY=
+            integrity: sha256-FTGQoRcLObEVfjKp/fcL1HIRY9LjYBEdEnr0tzZWoyM=
             type: binary
-            url: https://nodejs.org/download/release/v26.10.0/node-v26.10.0-linux-x64-musl.tar.gz
+            url: https://nodejs.org/download/release/v26.9.0/node-v26.9.0-linux-x64-musl.tar.gz
           targets:
             - cpu: x64
               os: linux
@@ -5710,9 +5707,9 @@ packages:
             archive: tarball
             bin:
               node: bin/node
-            integrity: sha256-y1yc6cgNe4gh46JYVDxxuTkTjPF8dNXMRLvoXW28Wtg=
+            integrity: sha256-A9kQT8TxllLnRID+0RwCPXWYFGS3KS8hpgHD+Vzn2Q0=
             type: binary
-            url: https://nodejs.org/download/release/v26.10.0/node-v26.10.0-linux-x64.tar.gz
+            url: https://nodejs.org/download/release/v26.9.0/node-v26.9.0-linux-x64.tar.gz
           targets:
             - cpu: x64
               os: linux
@@ -5720,10 +5717,10 @@ packages:
             archive: zip
             bin:
               node: node.exe
-            integrity: sha256-t3hkDXJxVmvKqWeZEs3waEwT6CTBFOQai2lvsUr3p6o=
-            prefix: node-v26.10.0-win-arm64
+            integrity: sha256-tw5FV9Gzgp5FwK/Bmsk3bMvUqGYSNTd//OkLOfxyJ7o=
+            prefix: node-v26.9.0-win-arm64
             type: binary
-            url: https://nodejs.org/download/release/v26.10.0/node-v26.10.0-win-arm64.zip
+            url: https://nodejs.org/download/release/v26.9.0/node-v26.9.0-win-arm64.zip
           targets:
             - cpu: arm64
               os: win32
@@ -5731,10 +5728,10 @@ packages:
             archive: zip
             bin:
               node: node.exe
-            integrity: sha256-n+9+ymdDprkQmJzY54cSN2s5T8ubbh6cRKB5mih/kMU=
-            prefix: node-v26.10.0-win-x64
+            integrity: sha256-yK+HC1s+l4mmy9swJw58IS4S12p6+n/H8htrIcwipxs=
+            prefix: node-v26.9.0-win-x64
             type: binary
-            url: https://nodejs.org/download/release/v26.10.0/node-v26.10.0-win-x64.zip
+            url: https://nodejs.org/download/release/v26.9.0/node-v26.9.0-win-x64.zip
           targets:
             - cpu: x64
               os: win32
@@ -5742,9 +5739,9 @@ packages:
             archive: tarball
             bin:
               node: bin/node
-            integrity: sha256-0mAnv/MZcFDSorC/oVGxjoN47YGv+iv1CTgE2xWJebY=
+            integrity: sha256-tSt0fobvbRgGjwL0P1CKYINYyXTcXajvJwvII7pHEMo=
             type: binary
-            url: https://unofficial-builds.nodejs.org/download/release/v26.10.0/node-v26.10.0-linux-arm64-musl.tar.gz
+            url: https://unofficial-builds.nodejs.org/download/release/v26.9.0/node-v26.9.0-linux-arm64-musl.tar.gz
           targets:
             - cpu: arm64
               os: linux
@@ -5753,14 +5750,14 @@ packages:
             archive: tarball
             bin:
               node: bin/node
-            integrity: sha256-5C2pSCG5Qi63a/Wq9N4Jd+BLoyC4r/YUjYlalLCO4iM=
+            integrity: sha256-Zp3WfsN09zFdusnhGWQdDk83FRngDEtpLx+B56BLdHw=
             type: binary
-            url: https://unofficial-builds.nodejs.org/download/release/v26.10.0/node-v26.10.0-linux-x64-musl.tar.gz
+            url: https://unofficial-builds.nodejs.org/download/release/v26.9.0/node-v26.9.0-linux-x64-musl.tar.gz
           targets:
             - cpu: x64
               os: linux
               libc: musl
-    version: 26.10.0
+    version: 26.9.0
     hasBin: true
 
   npm-run-path@4.0.1:
@@ -11335,11 +11332,11 @@ snapshots:
 
   jose@6.2.3: {}
 
-  jotai-family@1.1.0(jotai@3.0.0(patch_hash=05090e1dc8a8d7adf6ff96f2d3898cdd8e8068d7bfe36c89aac623d5b1a34fea)(@types/react@19.3.0)(react@19.3.0)):
+  jotai-family@1.1.0(jotai@3.0.0(@types/react@19.3.0)(react@19.3.0)):
     dependencies:
-      jotai: 3.0.0(patch_hash=05090e1dc8a8d7adf6ff96f2d3898cdd8e8068d7bfe36c89aac623d5b1a34fea)(@types/react@19.3.0)(react@19.3.0)
+      jotai: 3.0.0(@types/react@19.3.0)(react@19.3.0)
 
-  jotai@3.0.0(patch_hash=05090e1dc8a8d7adf6ff96f2d3898cdd8e8068d7bfe36c89aac623d5b1a34fea)(@types/react@19.3.0)(react@19.3.0):
+  jotai@3.0.0(@types/react@19.3.0)(react@19.3.0):
     optionalDependencies:
       '@types/react': 19.3.0
       react: 19.3.0
@@ -12045,7 +12042,7 @@ snapshots:
 
   node-releases@2.0.54: {}
 
-  node@runtime:26.10.0: {}
+  node@runtime:26.9.0: {}
 
   npm-run-path@4.0.1:
     dependencies:
