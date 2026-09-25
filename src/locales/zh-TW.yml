@@ -1251,15 +1251,6 @@ options:
       loadError: 無法載入額度，請稍後重試。
       remainingOf: 剩餘 $1 / $2 分鐘
       used: 已用 $1 分鐘
-      selfHosted:
-        active: 正在使用自建 AI 字幕伺服器：$1
-        transcribed: 這台伺服器已轉寫 $1 分鐘
-        title: 自建 AI 字幕伺服器
-        description: 留空時自動偵測這台電腦上的 Read Frog 字幕伺服器（$1），偵測不到就使用 Read Frog 官方服務。使用自建伺服器不需要登入，也不需要會員
-        test: 測試連線
-        testing: 測試中...
-        connected: 已連線 · $1
-        unreachable: 這個地址上沒有可用的 Read Frog 字幕伺服器
     style:
       title: 字幕樣式
       description: 顯示模式、位置、字型、顏色和背景，都對著預覽調

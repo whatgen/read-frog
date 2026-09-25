@@ -17,11 +17,6 @@ import {
 } from "@/utils/subtitles/ai/entitlement"
 import { ConfigItem } from "../../../components/config-item"
 import { ConfigSection } from "../../../components/config-section"
-import {
-  SelfHostedServerItem,
-  SelfHostedStatus,
-  useSelfHostedTranscriptUrl,
-} from "./self-hosted-server"
 
 const NEAR_LIMIT_RATIO = 0.9
 
@@ -39,11 +34,10 @@ function errorStatus(error: unknown): number | null {
 export function AiQuotaSection() {
   const { data: session, isPending: isSessionPending } = authClient.useSession()
   const isSignedIn = !!session?.user
-  const selfHostedUrl = useSelfHostedTranscriptUrl()
 
   const usageQuery = useQuery(
     orpc.videoTranscript.getUsage.queryOptions({
-      enabled: isSignedIn || !!selfHostedUrl,
+      enabled: isSignedIn,
       retry: false,
       staleTime: 60_000,
       meta: {
@@ -53,10 +47,6 @@ export function AiQuotaSection() {
   )
 
   function renderContent() {
-    if (selfHostedUrl) {
-      return <SelfHostedStatus url={selfHostedUrl} usage={usageQuery.data} />
-    }
-
     if (isSessionPending || (isSignedIn && usageQuery.isPending)) {
       return <QuotaSkeleton />
     }
@@ -95,7 +85,6 @@ export function AiQuotaSection() {
       >
         {renderContent()}
       </ConfigItem>
-      <SelfHostedServerItem />
     </ConfigSection>
   )
 }

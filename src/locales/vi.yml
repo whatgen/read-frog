@@ -1135,15 +1135,6 @@ options:
       loadError: Không thể tải hạn mức. Vui lòng thử lại sau.
       remainingOf: Còn $1 / $2 phút
       used: Đã dùng $1 phút
-      selfHosted:
-        active: "Using your self-hosted AI subtitles server: $1"
-        transcribed: Transcribed $1 min on this server
-        title: Self-hosted AI subtitles server
-        description: Leave empty to detect a Read Frog transcript server on this computer ($1); when none answers, Read Frog's service is used. No sign-in or plan is needed for a self-hosted server
-        test: Test connection
-        testing: Testing...
-        connected: Connected · $1
-        unreachable: Cannot reach a Read Frog transcript server at this address
     style:
       title: Kiểu phụ đề
       description: Chế độ hiển thị, vị trí, phông chữ, màu sắc và nền, chỉnh ngay trên bản xem trước
