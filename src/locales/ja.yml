@@ -1135,15 +1135,6 @@ options:
       loadError: 利用枠を読み込めませんでした。しばらくしてから再試行してください。
       remainingOf: 残り $1 / $2 分
       used: 使用済み $1 分
-      selfHosted:
-        active: "Using your self-hosted AI subtitles server: $1"
-        transcribed: Transcribed $1 min on this server
-        title: Self-hosted AI subtitles server
-        description: Leave empty to detect a Read Frog transcript server on this computer ($1); when none answers, Read Frog's service is used. No sign-in or plan is needed for a self-hosted server
-        test: Test connection
-        testing: Testing...
-        connected: Connected · $1
-        unreachable: Cannot reach a Read Frog transcript server at this address
     style:
       title: 字幕スタイル
       description: 表示モード・位置・フォント・色・背景を、プレビューを見ながら設定します

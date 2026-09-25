@@ -4,7 +4,6 @@ import { isORPCForbiddenError, isORPCUnauthorizedError } from "@/utils/notebase/
 import { orpcClient } from "@/utils/orpc/client"
 import { showAiSubtitlesWallToast } from "@/utils/subtitles/toast"
 import { formatQuotaDate, logInAction, quotaResetAt, upgradeAction } from "./entitlement"
-import { getSelfHostedTranscriptUrl } from "./self-hosted"
 
 function promptLogIn(): void {
   showAiSubtitlesWallToast(i18n.t("subtitles.errors.aiLoginRequired"), logInAction())
@@ -83,8 +82,7 @@ export async function ensureAiSubtitlesEntitled(): Promise<boolean> {
 }
 
 export async function ensureAiSubtitlesAccess(): Promise<boolean> {
-  // A self-hosted transcript server has no Read Frog account to sign in to.
-  if (!(await getSelfHostedTranscriptUrl()) && !(await ensureSignedIn())) {
+  if (!(await ensureSignedIn())) {
     return false
   }
   return ensureAiSubtitlesEntitled()
